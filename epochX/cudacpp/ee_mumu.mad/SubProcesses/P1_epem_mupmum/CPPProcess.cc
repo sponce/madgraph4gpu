@@ -56,9 +56,6 @@ namespace mg5amcCpu
   using Parameters_sm_dependentCouplings::ndcoup;   // #couplings that vary event by event (depend on running alphas QCD)
   using Parameters_sm_independentCouplings::nicoup; // #couplings that are fixed for all events (do not depend on running alphas QCD)
 
-  // The number of colors
-  constexpr int ncolor = 1;
-
   // The number of SIMD vectors of events processed by calculate_wavefunction
   constexpr int nParity = 1;
 
@@ -94,7 +91,7 @@ namespace mg5amcCpu
                            const unsigned int channelId,  // input: multichannel channel id (1 to #diagrams); 0 to disable channel enhancement
                            fptype* allNumerators,         // output: multichannel numerators[nevt], running_sum_over_helicities
                            fptype* allDenominators,       // output: multichannel denominators[nevt], running_sum_over_helicities
-                           fptype_sv* jamp2_sv            // output: jamp2[nParity][ncolor][neppV] for color choice (nullptr if disabled)
+                           fptype_sv* jamp2_sv            // output: jamp2[nParity][1][neppV] for color choice (nullptr if disabled)
                            , const int ievt00             // input: first event number in current C++ event page (for CUDA, ievt depends on threadid)
                            )
   //ALWAYS_INLINE // attributes are not permitted in a function definition
@@ -130,7 +127,7 @@ namespace mg5amcCpu
 
     // Local variables for the given CUDA event (ievt) or C++ event page (ipagV)
     // [jamp: sum (for one event or event page) of the invariant amplitudes for all Feynman diagrams in a given color combination]
-    cxtype_sv jamp_sv[ncolor] = {}; // all zeros (NB: vector cxtype_v IS initialized to 0, but scalar cxtype is NOT, if "= {}" is missing!)
+    cxtype_sv jamp_sv[1] = {}; // all zeros (NB: vector cxtype_v IS initialized to 0, but scalar cxtype is NOT, if "= {}" is missing!)
 
     // === Calculate wavefunctions and amplitudes for all diagrams in all processes         ===
     // === (for one event in CUDA, for one - or two in mixed mode - SIMD event pages in C++ ===
@@ -155,7 +152,7 @@ namespace mg5amcCpu
       fptype* denominators = DEN_ACCESS::ieventAccessRecord( allDenominators, ievt0 );
 
       // Reset color flows (reset jamp_sv) at the beginning of a new event or event page
-      for( int i = 0; i < ncolor; i++ ) { jamp_sv[i] = cxzero_sv(); }
+      jamp_sv[0] = cxzero_sv();
 
       // Numerators and denominators for the current event (CUDA) or SIMD event page (C++)
       fptype_sv& numerators_sv = NUM_ACCESS::kernelAccess( numerators );
@@ -194,39 +191,10 @@ namespace mg5amcCpu
       // *** COLOR CHOICE BELOW ***
       // Store the leading color flows for choice of color
       if( jamp2_sv ) // disable color choice if nullptr
-        for( int icolC = 0; icolC < ncolor; icolC++ )
-          jamp2_sv[ncolor * iParity + icolC] += cxabs2( jamp_sv[icolC] );
+        jamp2_sv[iParity] += cxabs2( jamp_sv[0] );
 
       // *** COLOR MATRIX BELOW ***
       // (This method used to be called CPPProcess::matrix_1_epem_mupmum()?)
-
-      // The color denominators (initialize all array elements, with ncolor=1)
-      // [NB do keep 'static' for these constexpr arrays, see issue #283]
-      static constexpr fptype2 denom[ncolor] = { 1 }; // 1-D array[1]
-
-      // The color matrix (initialize all array elements, with ncolor=1)
-      // [NB do keep 'static' for these constexpr arrays, see issue #283]
-      static constexpr fptype2 cf[ncolor][ncolor] = { { 1 } }; // 2-D array[1][1]
-
-      // Pre-compute a constexpr triangular color matrix properly normalized #475
-      struct TriangularNormalizedColorMatrix
-      {
-        // See https://stackoverflow.com/a/34465458
-        __host__ __device__ constexpr TriangularNormalizedColorMatrix()
-          : value()
-        {
-          for( int icol = 0; icol < ncolor; icol++ )
-          {
-            // Diagonal terms
-            value[icol][icol] = cf[icol][icol] / denom[icol];
-            // Off-diagonal terms
-            for( int jcol = icol + 1; jcol < ncolor; jcol++ )
-              value[icol][jcol] = 2 * cf[icol][jcol] / denom[icol];
-          }
-        }
-        fptype2 value[ncolor][ncolor];
-      };
-      static constexpr auto cf2 = TriangularNormalizedColorMatrix();
 
       // Sum and square the color flows to get the matrix element
       // (compute |M|^2 by squaring |M|, taking into account colours)
@@ -237,30 +205,15 @@ namespace mg5amcCpu
       // Use the property that M is a real matrix (see #475):
       // we can rewrite the quadratic form (A-iB)(M)(A+iB) as AMA - iBMA + iBMA + BMB = AMA + BMB
       // In addition, on C++ use the property that M is symmetric (see #475),
-      // and also use constexpr to compute "2*" and "/denom[icol]" once and for all at compile time:
+      // and also use constexpr to compute "2*" and "/1" once and for all at compile time:
       // we gain (not a factor 2...) in speed here as we only loop over the up diagonal part of the matrix.
       // Strangely, CUDA is slower instead, so keep the old implementation for the moment.
-      for( int icol = 0; icol < ncolor; icol++ )
-      {
-        // === C++ START ===
-        // Diagonal terms
-        fptype2_sv jampRi_sv = (fptype2_sv)( cxreal( jamp_sv[icol] ) );
-        fptype2_sv jampIi_sv = (fptype2_sv)( cximag( jamp_sv[icol] ) );
-        fptype2_sv ztempR_sv = cf2.value[icol][icol] * jampRi_sv;
-        fptype2_sv ztempI_sv = cf2.value[icol][icol] * jampIi_sv;
-        // Off-diagonal terms
-        for( int jcol = icol + 1; jcol < ncolor; jcol++ )
-        {
-          fptype2_sv jampRj_sv = (fptype2_sv)( cxreal( jamp_sv[jcol] ) );
-          fptype2_sv jampIj_sv = (fptype2_sv)( cximag( jamp_sv[jcol] ) );
-          ztempR_sv += cf2.value[icol][jcol] * jampRj_sv;
-          ztempI_sv += cf2.value[icol][jcol] * jampIj_sv;
-        }
-        fptype2_sv deltaMEs2 = ( jampRi_sv * ztempR_sv + jampIi_sv * ztempI_sv );
-        deltaMEs += deltaMEs2;
-        // === C++ END ===
-      }
-
+      // Diagonal terms
+      fptype2_sv jampRi_sv = (fptype2_sv)( cxreal( jamp_sv[0] ) );
+      fptype2_sv jampIi_sv = (fptype2_sv)( cximag( jamp_sv[0] ) );
+      fptype2_sv deltaMEs2 = ( jampRi_sv * jampRi_sv + jampIi_sv * jampIi_sv );
+      deltaMEs += deltaMEs2;
+      
       // *** STORE THE RESULTS ***
 
       // NB: calculate_wavefunctions ADDS |M|^2 for a given ihel to the running sum of |M|^2 over helicities for the given event(s)
@@ -451,9 +404,6 @@ namespace mg5amcCpu
   {
     mgDebugInitialise();
 
-    // Denominators: spins, colors and identical particles
-    constexpr int helcolDenominators[1] = { 4 }; // assume nprocesses == 1 (#272 and #343)
-
     using E_ACCESS = HostAccessMatrixElements; // non-trivial access: buffer includes all events
     using NUM_ACCESS = HostAccessNumerators;   // non-trivial access: buffer includes all events
     using DEN_ACCESS = HostAccessDenominators; // non-trivial access: buffer includes all events
@@ -496,8 +446,8 @@ namespace mg5amcCpu
 #endif // _OPENMP
     for( int ipagV2 = 0; ipagV2 < npagV2; ++ipagV2 ) {
       // Running sum of partial amplitudes squared for event by event color selection (#402)
-      // (jamp2[nParity][ncolor][neppV] for the SIMD vector - or the two SIMD vectors - of events processed in calculate_wavefunctions)
-      fptype_sv jamp2_sv[nParity * ncolor] = { 0 };
+      // (jamp2[nParity][1][neppV] for the SIMD vector - or the two SIMD vectors - of events processed in calculate_wavefunctions)
+      fptype_sv jamp2_sv[nParity] = { 0 };
       fptype_sv MEs_ighel[ncomb] = { 0 };    // sum of MEs for all good helicities up to ighel (for the first - and/or only - neppV page)
       const int ievt00 = ipagV2 * neppV; // loop on one SIMD page (neppV events) at a time
       for( int ighel = 0; ighel < cNGoodHel; ighel++ ) {
@@ -525,27 +475,18 @@ namespace mg5amcCpu
       }
       const int channelIdC = channelId - 1; // coloramps.h uses the C array indexing starting at 0
       // Event-by-event random choice of color #402
-      fptype_sv targetamp[ncolor] = { 0 };
-      for( int icolC = 0; icolC < ncolor; icolC++ ) {
-        if( icolC == 0 )
-          targetamp[icolC] = fptype_sv{ 0 };
-        else
-          targetamp[icolC] = targetamp[icolC - 1];
-        if( mgOnGpu::icolamp[channelIdC][icolC] ) targetamp[icolC] += jamp2_sv[icolC];
-      }
+      fptype_sv targetamp = fptype_sv{ 0 };
+      if( mgOnGpu::icolamp[channelIdC][0] ) targetamp += jamp2_sv[0];
       for( int ieppV = 0; ieppV < neppV; ++ieppV ) {
         const int ievt = ievt00 + ieppV;
-        //printf( "sigmaKin: ievt=%4d rndcol=%f\n", ievt, allrndcol[ievt] );
-        for( int icolC = 0; icolC < ncolor; icolC++ ) {
 #if defined MGONGPU_CPPSIMD
-          const bool okcol = allrndcol[ievt] < ( targetamp[icolC][ieppV] / targetamp[ncolor - 1][ieppV] );
+        const bool okcol = allrndcol[ievt] < ( targetamp[ieppV] / targetamp[ieppV] );
 #else
-          const bool okcol = allrndcol[ievt] < ( targetamp[icolC] / targetamp[ncolor - 1] );
+        const bool okcol = allrndcol[ievt] < ( targetamp / targetamp );
 #endif
-          if( okcol ) {
-            allselcol[ievt] = icolC + 1; // NB Fortran [1,ncolor], cudacpp [0,ncolor-1]
-            break;
-          }
+        if( okcol ) {
+          allselcol[ievt] = 1; // NB Fortran [1,1], cudacpp [0,0]
+          break;
         }
       }
     }
@@ -559,7 +500,7 @@ namespace mg5amcCpu
       const int ievt0 = ipagV * neppV;
       fptype* MEs = E_ACCESS::ieventAccessRecord( allMEs, ievt0 );
       fptype_sv& MEs_sv = E_ACCESS::kernelAccess( MEs );
-      MEs_sv /= helcolDenominators[0];
+      MEs_sv /= 4;
       if( channelId > 0 ) {
         fptype* numerators = NUM_ACCESS::ieventAccessRecord( allNumerators, ievt0 );
         fptype* denominators = DEN_ACCESS::ieventAccessRecord( allDenominators, ievt0 );
