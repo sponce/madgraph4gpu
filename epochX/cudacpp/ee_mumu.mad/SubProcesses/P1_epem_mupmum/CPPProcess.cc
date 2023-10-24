@@ -56,9 +56,6 @@ namespace mg5amcCpu
   using Parameters_sm_dependentCouplings::ndcoup;   // #couplings that vary event by event (depend on running alphas QCD)
   using Parameters_sm_independentCouplings::nicoup; // #couplings that are fixed for all events (do not depend on running alphas QCD)
 
-  // The number of SIMD vectors of events processed by calculate_wavefunction
-  constexpr int nParity = 1;
-
   // Physics parameters (masses, coupling, etc...)
   // For CUDA performance, hardcoded constexpr's would be better: fewer registers and a tiny throughput increase
   // However, physics parameters are user-defined through card files: use CUDA constant memory instead (issue #39)
@@ -82,7 +79,7 @@ namespace mg5amcCpu
   // NB: calculate_wavefunctions ADDS |M|^2 for a given ihel to the running sum of |M|^2 over helicities for the given event(s)
   // (similarly, it also ADDS the numerator and denominator for a given ihel to their running sums over helicities)
   // In CUDA, this device function computes the ME for a single event
-  // In C++, this function computes the ME for a single event "page" or SIMD vector (or for two in "mixed" precision mode, nParity=2)
+  // In C++, this function computes the ME for a single event "page" or SIMD vector
   __device__ INLINE void /* clang-format off */
   calculate_wavefunctions( int ihel,
                            const fptype* allmomenta,      // input: momenta[nevt*npar*4]
@@ -91,8 +88,8 @@ namespace mg5amcCpu
                            const unsigned int channelId,  // input: multichannel channel id (1 to #diagrams); 0 to disable channel enhancement
                            fptype* allNumerators,         // output: multichannel numerators[nevt], running_sum_over_helicities
                            fptype* allDenominators,       // output: multichannel denominators[nevt], running_sum_over_helicities
-                           fptype_sv* jamp2_sv            // output: jamp2[nParity][1][neppV] for color choice (nullptr if disabled)
-                           , const int ievt00             // input: first event number in current C++ event page (for CUDA, ievt depends on threadid)
+                           fptype_sv* jamp2_sv            // output: jamp2[1][1][neppV] for color choice (nullptr if disabled)
+                           , const int ievt0             // input: first event number in current C++ event page (for CUDA, ievt depends on threadid)
                            )
   //ALWAYS_INLINE // attributes are not permitted in a function definition
   {
@@ -130,96 +127,92 @@ namespace mg5amcCpu
     cxtype_sv jamp_sv[1] = {}; // all zeros (NB: vector cxtype_v IS initialized to 0, but scalar cxtype is NOT, if "= {}" is missing!)
 
     // === Calculate wavefunctions and amplitudes for all diagrams in all processes         ===
-    // === (for one event in CUDA, for one - or two in mixed mode - SIMD event pages in C++ ===
-    for( int iParity = 0; iParity < nParity; ++iParity )
-    { // START LOOP ON IPARITY
-      const int ievt0 = ievt00 + iParity * neppV;
-      constexpr size_t nxcoup = ndcoup + nicoup; // both dependent and independent couplings
-      const fptype* allCOUPs[nxcoup];
-      for( size_t idcoup = 0; idcoup < ndcoup; idcoup++ )
-        allCOUPs[idcoup] = CD_ACCESS::idcoupAccessBufferConst( allcouplings, idcoup ); // dependent couplings, vary event-by-event
-      for( size_t iicoup = 0; iicoup < nicoup; iicoup++ )
-        allCOUPs[ndcoup + iicoup] = CI_ACCESS::iicoupAccessBufferConst( cIPC, iicoup ); // independent couplings, fixed for all events
-      // C++ kernels take input/output buffers with momenta/MEs for one specific event (the first in the current event page)
-      const fptype* momenta = M_ACCESS::ieventAccessRecordConst( allmomenta, ievt0 );
-      const fptype* COUPs[nxcoup];
-      for( size_t idcoup = 0; idcoup < ndcoup; idcoup++ )
-        COUPs[idcoup] = CD_ACCESS::ieventAccessRecordConst( allCOUPs[idcoup], ievt0 ); // dependent couplings, vary event-by-event
-      for( size_t iicoup = 0; iicoup < nicoup; iicoup++ )
-        COUPs[ndcoup + iicoup] = allCOUPs[ndcoup + iicoup]; // independent couplings, fixed for all events
-      fptype* MEs = E_ACCESS::ieventAccessRecord( allMEs, ievt0 );
-      fptype* numerators = NUM_ACCESS::ieventAccessRecord( allNumerators, ievt0 );
-      fptype* denominators = DEN_ACCESS::ieventAccessRecord( allDenominators, ievt0 );
+    // === (for one event in CUDA, for one SIMD event pages in C++ ===
+    constexpr size_t nxcoup = ndcoup + nicoup; // both dependent and independent couplings
+    const fptype* allCOUPs[nxcoup];
+    for( size_t idcoup = 0; idcoup < ndcoup; idcoup++ )
+      allCOUPs[idcoup] = CD_ACCESS::idcoupAccessBufferConst( allcouplings, idcoup ); // dependent couplings, vary event-by-event
+    for( size_t iicoup = 0; iicoup < nicoup; iicoup++ )
+      allCOUPs[ndcoup + iicoup] = CI_ACCESS::iicoupAccessBufferConst( cIPC, iicoup ); // independent couplings, fixed for all events
+    // C++ kernels take input/output buffers with momenta/MEs for one specific event (the first in the current event page)
+    const fptype* momenta = M_ACCESS::ieventAccessRecordConst( allmomenta, ievt0 );
+    const fptype* COUPs[nxcoup];
+    for( size_t idcoup = 0; idcoup < ndcoup; idcoup++ )
+      COUPs[idcoup] = CD_ACCESS::ieventAccessRecordConst( allCOUPs[idcoup], ievt0 ); // dependent couplings, vary event-by-event
+    for( size_t iicoup = 0; iicoup < nicoup; iicoup++ )
+      COUPs[ndcoup + iicoup] = allCOUPs[ndcoup + iicoup]; // independent couplings, fixed for all events
+    fptype* MEs = E_ACCESS::ieventAccessRecord( allMEs, ievt0 );
+    fptype* numerators = NUM_ACCESS::ieventAccessRecord( allNumerators, ievt0 );
+    fptype* denominators = DEN_ACCESS::ieventAccessRecord( allDenominators, ievt0 );
 
-      // Reset color flows (reset jamp_sv) at the beginning of a new event or event page
-      jamp_sv[0] = cxzero_sv();
+    // Reset color flows (reset jamp_sv) at the beginning of a new event or event page
+    jamp_sv[0] = cxzero_sv();
 
-      // Numerators and denominators for the current event (CUDA) or SIMD event page (C++)
-      fptype_sv& numerators_sv = NUM_ACCESS::kernelAccess( numerators );
-      fptype_sv& denominators_sv = DEN_ACCESS::kernelAccess( denominators );
+    // Numerators and denominators for the current event (CUDA) or SIMD event page (C++)
+    fptype_sv& numerators_sv = NUM_ACCESS::kernelAccess( numerators );
+    fptype_sv& denominators_sv = DEN_ACCESS::kernelAccess( denominators );
 
-      // *** DIAGRAM 1 OF 2 ***
+    // *** DIAGRAM 1 OF 2 ***
 
-      // Wavefunction(s) for diagram number 1
-      opzxxx<M_ACCESS, W_ACCESS>( momenta, cHel[ihel][0], -1, w_fp[0], 0 ); // NB: opzxxx only uses pz
+    // Wavefunction(s) for diagram number 1
+    opzxxx<M_ACCESS, W_ACCESS>( momenta, cHel[ihel][0], -1, w_fp[0], 0 ); // NB: opzxxx only uses pz
 
-      imzxxx<M_ACCESS, W_ACCESS>( momenta, cHel[ihel][1], +1, w_fp[1], 1 ); // NB: imzxxx only uses pz
+    imzxxx<M_ACCESS, W_ACCESS>( momenta, cHel[ihel][1], +1, w_fp[1], 1 ); // NB: imzxxx only uses pz
 
-      ixzxxx<M_ACCESS, W_ACCESS>( momenta, cHel[ihel][2], -1, w_fp[2], 2 );
+    ixzxxx<M_ACCESS, W_ACCESS>( momenta, cHel[ihel][2], -1, w_fp[2], 2 );
 
-      oxzxxx<M_ACCESS, W_ACCESS>( momenta, cHel[ihel][3], +1, w_fp[3], 3 );
+    oxzxxx<M_ACCESS, W_ACCESS>( momenta, cHel[ihel][3], +1, w_fp[3], 3 );
 
-      FFV1P0_3<W_ACCESS, CI_ACCESS>( w_fp[1], w_fp[0], COUPs[0], 0., 0., w_fp[4] );
+    FFV1P0_3<W_ACCESS, CI_ACCESS>( w_fp[1], w_fp[0], COUPs[0], 0., 0., w_fp[4] );
 
-      // Amplitude(s) for diagram number 1
-      FFV1_0<W_ACCESS, A_ACCESS, CI_ACCESS>( w_fp[2], w_fp[3], w_fp[4], COUPs[0], &amp_fp[0] );
-      if( channelId == 1 ) numerators_sv += cxabs2( amp_sv[0] );
-      if( channelId != 0 ) denominators_sv += cxabs2( amp_sv[0] );
-      jamp_sv[0] -= amp_sv[0];
+    // Amplitude(s) for diagram number 1
+    FFV1_0<W_ACCESS, A_ACCESS, CI_ACCESS>( w_fp[2], w_fp[3], w_fp[4], COUPs[0], &amp_fp[0] );
+    if( channelId == 1 ) numerators_sv += cxabs2( amp_sv[0] );
+    if( channelId != 0 ) denominators_sv += cxabs2( amp_sv[0] );
+    jamp_sv[0] -= amp_sv[0];
 
-      // *** DIAGRAM 2 OF 2 ***
+    // *** DIAGRAM 2 OF 2 ***
 
-      // Wavefunction(s) for diagram number 2
-      FFV2_4_3<W_ACCESS, CI_ACCESS>( w_fp[1], w_fp[0], COUPs[1], COUPs[2], cIPD[0], cIPD[1], w_fp[4] );
+    // Wavefunction(s) for diagram number 2
+    FFV2_4_3<W_ACCESS, CI_ACCESS>( w_fp[1], w_fp[0], COUPs[1], COUPs[2], cIPD[0], cIPD[1], w_fp[4] );
 
-      // Amplitude(s) for diagram number 2
-      FFV2_4_0<W_ACCESS, A_ACCESS, CI_ACCESS>( w_fp[2], w_fp[3], w_fp[4], COUPs[1], COUPs[2], &amp_fp[0] );
-      if( channelId == 2 ) numerators_sv += cxabs2( amp_sv[0] );
-      if( channelId != 0 ) denominators_sv += cxabs2( amp_sv[0] );
-      jamp_sv[0] -= amp_sv[0];
+    // Amplitude(s) for diagram number 2
+    FFV2_4_0<W_ACCESS, A_ACCESS, CI_ACCESS>( w_fp[2], w_fp[3], w_fp[4], COUPs[1], COUPs[2], &amp_fp[0] );
+    if( channelId == 2 ) numerators_sv += cxabs2( amp_sv[0] );
+    if( channelId != 0 ) denominators_sv += cxabs2( amp_sv[0] );
+    jamp_sv[0] -= amp_sv[0];
 
-      // *** COLOR CHOICE BELOW ***
-      // Store the leading color flows for choice of color
-      if( jamp2_sv ) // disable color choice if nullptr
-        jamp2_sv[iParity] += cxabs2( jamp_sv[0] );
+    // *** COLOR CHOICE BELOW ***
+    // Store the leading color flows for choice of color
+    if( jamp2_sv ) // disable color choice if nullptr
+      jamp2_sv[0] += cxabs2( jamp_sv[0] );
 
-      // *** COLOR MATRIX BELOW ***
-      // (This method used to be called CPPProcess::matrix_1_epem_mupmum()?)
+    // *** COLOR MATRIX BELOW ***
+    // (This method used to be called CPPProcess::matrix_1_epem_mupmum()?)
 
-      // Sum and square the color flows to get the matrix element
-      // (compute |M|^2 by squaring |M|, taking into account colours)
-      // Sum and square the color flows to get the matrix element
-      // (compute |M|^2 by squaring |M|, taking into account colours)
-      fptype_sv deltaMEs = { 0 }; // all zeros https://en.cppreference.com/w/c/language/array_initialization#Notes
+    // Sum and square the color flows to get the matrix element
+    // (compute |M|^2 by squaring |M|, taking into account colours)
+    // Sum and square the color flows to get the matrix element
+    // (compute |M|^2 by squaring |M|, taking into account colours)
+    fptype_sv deltaMEs = { 0 }; // all zeros https://en.cppreference.com/w/c/language/array_initialization#Notes
 
-      // Use the property that M is a real matrix (see #475):
-      // we can rewrite the quadratic form (A-iB)(M)(A+iB) as AMA - iBMA + iBMA + BMB = AMA + BMB
-      // In addition, on C++ use the property that M is symmetric (see #475),
-      // and also use constexpr to compute "2*" and "/1" once and for all at compile time:
-      // we gain (not a factor 2...) in speed here as we only loop over the up diagonal part of the matrix.
-      // Strangely, CUDA is slower instead, so keep the old implementation for the moment.
-      // Diagonal terms
-      fptype2_sv jampRi_sv = (fptype2_sv)( cxreal( jamp_sv[0] ) );
-      fptype2_sv jampIi_sv = (fptype2_sv)( cximag( jamp_sv[0] ) );
-      fptype2_sv deltaMEs2 = ( jampRi_sv * jampRi_sv + jampIi_sv * jampIi_sv );
-      deltaMEs += deltaMEs2;
+    // Use the property that M is a real matrix (see #475):
+    // we can rewrite the quadratic form (A-iB)(M)(A+iB) as AMA - iBMA + iBMA + BMB = AMA + BMB
+    // In addition, on C++ use the property that M is symmetric (see #475),
+    // and also use constexpr to compute "2*" and "/1" once and for all at compile time:
+    // we gain (not a factor 2...) in speed here as we only loop over the up diagonal part of the matrix.
+    // Strangely, CUDA is slower instead, so keep the old implementation for the moment.
+    // Diagonal terms
+    fptype2_sv jampRi_sv = (fptype2_sv)( cxreal( jamp_sv[0] ) );
+    fptype2_sv jampIi_sv = (fptype2_sv)( cximag( jamp_sv[0] ) );
+    fptype2_sv deltaMEs2 = ( jampRi_sv * jampRi_sv + jampIi_sv * jampIi_sv );
+    deltaMEs += deltaMEs2;
       
-      // *** STORE THE RESULTS ***
+    // *** STORE THE RESULTS ***
 
-      // NB: calculate_wavefunctions ADDS |M|^2 for a given ihel to the running sum of |M|^2 over helicities for the given event(s)
-      fptype_sv& MEs_sv = E_ACCESS::kernelAccess( MEs );
-      MEs_sv += deltaMEs; // fix #435
-    } // END LOOP ON IPARITY
+    // NB: calculate_wavefunctions ADDS |M|^2 for a given ihel to the running sum of |M|^2 over helicities for the given event(s)
+    fptype_sv& MEs_sv = E_ACCESS::kernelAccess( MEs );
+    MEs_sv += deltaMEs; // fix #435
     mgDebug( 1, __FUNCTION__ );
     return;
   }
@@ -446,8 +439,8 @@ namespace mg5amcCpu
 #endif // _OPENMP
     for( int ipagV2 = 0; ipagV2 < npagV2; ++ipagV2 ) {
       // Running sum of partial amplitudes squared for event by event color selection (#402)
-      // (jamp2[nParity][1][neppV] for the SIMD vector - or the two SIMD vectors - of events processed in calculate_wavefunctions)
-      fptype_sv jamp2_sv[nParity] = { 0 };
+      // (jamp2[1][1][neppV] for the SIMD vector - or the two SIMD vectors - of events processed in calculate_wavefunctions)
+      fptype_sv jamp2_sv[1] = { 0 };
       fptype_sv MEs_ighel[ncomb] = { 0 };    // sum of MEs for all good helicities up to ighel (for the first - and/or only - neppV page)
       const int ievt00 = ipagV2 * neppV; // loop on one SIMD page (neppV events) at a time
       for( int ighel = 0; ighel < cNGoodHel; ighel++ ) {
