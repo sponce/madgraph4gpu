@@ -60,13 +60,8 @@ namespace mg5amcCpu
   // For CUDA performance, hardcoded constexpr's would be better: fewer registers and a tiny throughput increase
   // However, physics parameters are user-defined through card files: use CUDA constant memory instead (issue #39)
   // [NB if hardcoded parameters are used, it's better to define them here to avoid silent shadowing (issue #263)]
-#ifdef MGONGPU_HARDCODE_PARAM
-  __device__ const fptype cIPD[2] = { (fptype)Parameters_sm::mdl_MZ, (fptype)Parameters_sm::mdl_WZ };
-  __device__ const fptype cIPC[6] = { (fptype)Parameters_sm::GC_3.real(), (fptype)Parameters_sm::GC_3.imag(), (fptype)Parameters_sm::GC_50.real(), (fptype)Parameters_sm::GC_50.imag(), (fptype)Parameters_sm::GC_59.real(), (fptype)Parameters_sm::GC_59.imag() };
-#else
   static fptype cIPD[2];
   static fptype cIPC[6];
-#endif
 
   // Helicity combinations (and filtering of "good" helicity combinations)
   static short cHel[ncomb][npar];
@@ -223,9 +218,7 @@ namespace mg5amcCpu
                           bool debug )
     : m_verbose( verbose )
     , m_debug( debug )
-#ifndef MGONGPU_HARDCODE_PARAM
     , m_pars( 0 )
-#endif
     , m_masses()
   {
     // Helicities for the process [NB do keep 'static' for this constexpr array, see issue #283]
@@ -256,7 +249,6 @@ namespace mg5amcCpu
 
   //--------------------------------------------------------------------------
 
-#ifndef MGONGPU_HARDCODE_PARAM
   // Initialize process (with parameters read from user cards)
   void
   CPPProcess::initProc( const std::string& param_card_name )
@@ -283,26 +275,6 @@ namespace mg5amcCpu
     memcpy( cIPD, tIPD, 2 * sizeof( fptype ) );
     memcpy( cIPC, tIPC, 3 * sizeof( cxtype ) );
   }
-#else
-  // Initialize process (with hardcoded parameters)
-  void
-  CPPProcess::initProc( const std::string& /*param_card_name*/ )
-  {
-    // Use hardcoded physics parameters
-    if( m_verbose )
-    {
-      Parameters_sm::printIndependentParameters();
-      Parameters_sm::printIndependentCouplings();
-      //Parameters_sm::printDependentParameters(); // now computed event-by-event (running alphas #373)
-      //Parameters_sm::printDependentCouplings(); // now computed event-by-event (running alphas #373)
-    }
-    // Set external particle masses for this matrix element
-    m_masses.push_back( Parameters_sm::ZERO );
-    m_masses.push_back( Parameters_sm::ZERO );
-    m_masses.push_back( Parameters_sm::ZERO );
-    m_masses.push_back( Parameters_sm::ZERO );
-  }
-#endif
 
   __global__ void /* clang-format off */
   computeDependentCouplings( const fptype* allgs, // input: Gs[nevt]

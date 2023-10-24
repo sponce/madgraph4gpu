@@ -655,11 +655,6 @@ main( int argc, char** argv )
 #else
               << " [inlineHel=0]"
 #endif
-#ifdef MGONGPU_HARDCODE_PARAM
-              << " [hardcodePARAM=1]" << std::endl
-#else
-              << " [hardcodePARAM=0]" << std::endl
-#endif
               << "NumBlocksPerGrid            = " << gpublocks << std::endl
               << "NumThreadsPerBlock          = " << gputhreads << std::endl
               << "NumIterations               = " << niter << std::endl
