@@ -38,14 +38,12 @@
 
 // Test ncu metrics for CUDA thread divergence
 #undef MGONGPU_TEST_DIVERGENCE
-//#define MGONGPU_TEST_DIVERGENCE 1
 
 //==========================================================================
 // Class member functions for calculating the matrix elements for
 // Process: e+ e- > mu+ mu- WEIGHTED<=4 @1
 
-namespace mg5amcCpu
-{
+namespace mg5amcCpu {
   constexpr int nw6 = CPPProcess::nw6;     // dimensions of each wavefunction (HELAS KEK 91-11): e.g. 6 for e+ e- -> mu+ mu- (fermions and vectors)
   constexpr int npar = CPPProcess::npar;   // #particles in total (external = initial + final): e.g. 4 for e+ e- -> mu+ mu-
   constexpr int ncomb = CPPProcess::ncomb; // #helicity combinations: e.g. 16 for e+ e- -> mu+ mu- (2**4 = fermion spin up/down ** npar)
@@ -85,9 +83,7 @@ namespace mg5amcCpu
                            fptype* allDenominators,       // output: multichannel denominators[nevt], running_sum_over_helicities
                            fptype_sv* jamp2_sv            // output: jamp2[1][1][neppV] for color choice (nullptr if disabled)
                            , const int ievt0             // input: first event number in current C++ event page (for CUDA, ievt depends on threadid)
-                           )
-  //ALWAYS_INLINE // attributes are not permitted in a function definition
-  {
+                           ) {
     using namespace mg5amcCpu;
     using M_ACCESS = HostAccessMomenta;         // non-trivial access: buffer includes all events
     using E_ACCESS = HostAccessMatrixElements;  // non-trivial access: buffer includes all events
@@ -151,13 +147,9 @@ namespace mg5amcCpu
 
     // Wavefunction(s) for diagram number 1
     opzxxx<M_ACCESS, W_ACCESS>( momenta, cHel[ihel][0], -1, w_fp[0], 0 ); // NB: opzxxx only uses pz
-
     imzxxx<M_ACCESS, W_ACCESS>( momenta, cHel[ihel][1], +1, w_fp[1], 1 ); // NB: imzxxx only uses pz
-
     ixzxxx<M_ACCESS, W_ACCESS>( momenta, cHel[ihel][2], -1, w_fp[2], 2 );
-
     oxzxxx<M_ACCESS, W_ACCESS>( momenta, cHel[ihel][3], +1, w_fp[3], 3 );
-
     FFV1P0_3<W_ACCESS, CI_ACCESS>( w_fp[1], w_fp[0], COUPs[0], 0., 0., w_fp[4] );
 
     // Amplitude(s) for diagram number 1
@@ -170,7 +162,6 @@ namespace mg5amcCpu
 
     // Wavefunction(s) for diagram number 2
     FFV2_4_3<W_ACCESS, CI_ACCESS>( w_fp[1], w_fp[0], COUPs[1], COUPs[2], cIPD[0], cIPD[1], w_fp[4] );
-
     // Amplitude(s) for diagram number 2
     FFV2_4_0<W_ACCESS, A_ACCESS, CI_ACCESS>( w_fp[2], w_fp[3], w_fp[4], COUPs[1], COUPs[2], &amp_fp[0] );
     if( channelId == 2 ) numerators_sv += cxabs2( amp_sv[0] );
@@ -180,7 +171,7 @@ namespace mg5amcCpu
     // *** COLOR CHOICE BELOW ***
     // Store the leading color flows for choice of color
     if( jamp2_sv ) // disable color choice if nullptr
-      jamp2_sv[0] += cxabs2( jamp_sv[0] );
+      *jamp2_sv += cxabs2( jamp_sv[0] );
 
     // *** COLOR MATRIX BELOW ***
     // (This method used to be called CPPProcess::matrix_1_epem_mupmum()?)
@@ -212,15 +203,9 @@ namespace mg5amcCpu
     return;
   }
 
-  //--------------------------------------------------------------------------
-
   CPPProcess::CPPProcess( bool verbose,
                           bool debug )
-    : m_verbose( verbose )
-    , m_debug( debug )
-    , m_pars( 0 )
-    , m_masses()
-  {
+    : m_verbose( verbose ), m_debug( debug ), m_pars( 0 ), m_masses() {
     // Helicities for the process [NB do keep 'static' for this constexpr array, see issue #283]
     // *** NB There is no automatic check yet that these are in the same order as Fortran! #569 ***
     static constexpr short tHel[ncomb][npar] = {
@@ -243,11 +228,7 @@ namespace mg5amcCpu
     memcpy( cHel, tHel, ncomb * npar * sizeof( short ) );
   }
 
-  //--------------------------------------------------------------------------
-
   CPPProcess::~CPPProcess() {}
-
-  //--------------------------------------------------------------------------
 
   // Initialize process (with parameters read from user cards)
   void
@@ -280,8 +261,7 @@ namespace mg5amcCpu
   computeDependentCouplings( const fptype* allgs, // input: Gs[nevt]
                              fptype* allcouplings // output: couplings[nevt*ndcoup*2]
                              , const int nevt     // input: #events (for cuda: nevt == ndim == gpublocks*gputhreads)
-  ) /* clang-format on */
-  {
+                             ) { /* clang-format on */
     using namespace mg5amcCpu;
     using G_ACCESS = HostAccessGs;
     using C_ACCESS = HostAccessCouplings;
@@ -293,8 +273,6 @@ namespace mg5amcCpu
       G2COUP<G_ACCESS, C_ACCESS>( gs, couplings );
     }
   }
-
-  //--------------------------------------------------------------------------
 
   void
   sigmaKin_getGoodHel( const fptype* allmomenta,   // input: momenta[nevt*npar*4]
@@ -350,7 +328,6 @@ namespace mg5amcCpu
     return nGoodHel;
   }
 
-  //--------------------------------------------------------------------------
   // Evaluate |M|^2, part independent of incoming flavour
 
   __global__ void /* clang-format off */
@@ -411,13 +388,13 @@ namespace mg5amcCpu
 #endif // _OPENMP
     for( int ipagV2 = 0; ipagV2 < npagV2; ++ipagV2 ) {
       // Running sum of partial amplitudes squared for event by event color selection (#402)
-      // (jamp2[1][1][neppV] for the SIMD vector - or the two SIMD vectors - of events processed in calculate_wavefunctions)
-      fptype_sv jamp2_sv[1] = { 0 };
+      // (jamp2[1][1][neppV] for the SIMD vector of events processed in calculate_wavefunctions)
+      fptype_sv jamp2_sv = { 0 };
       fptype_sv MEs_ighel[ncomb] = { 0 };    // sum of MEs for all good helicities up to ighel (for the first - and/or only - neppV page)
       const int ievt00 = ipagV2 * neppV; // loop on one SIMD page (neppV events) at a time
       for( int ighel = 0; ighel < cNGoodHel; ighel++ ) {
         const int ihel = cGoodHel[ighel];
-        calculate_wavefunctions( ihel, allmomenta, allcouplings, allMEs, channelId, allNumerators, allDenominators, jamp2_sv, ievt00 );
+        calculate_wavefunctions( ihel, allmomenta, allcouplings, allMEs, channelId, allNumerators, allDenominators, &jamp2_sv, ievt00 );
         MEs_ighel[ighel] = E_ACCESS::kernelAccess( E_ACCESS::ieventAccessRecord( allMEs, ievt00 ) );
       }
       // Event-by-event random choice of helicity #403
@@ -441,7 +418,7 @@ namespace mg5amcCpu
       const int channelIdC = channelId - 1; // coloramps.h uses the C array indexing starting at 0
       // Event-by-event random choice of color #402
       fptype_sv targetamp = fptype_sv{ 0 };
-      if( mgOnGpu::icolamp[channelIdC][0] ) targetamp += jamp2_sv[0];
+      if( mgOnGpu::icolamp[channelIdC][0] ) targetamp += jamp2_sv;
       for( int ieppV = 0; ieppV < neppV; ++ieppV ) {
         const int ievt = ievt00 + ieppV;
 #if defined MGONGPU_CPPSIMD
