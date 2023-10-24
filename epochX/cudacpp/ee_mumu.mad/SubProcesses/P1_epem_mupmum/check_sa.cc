@@ -565,15 +565,7 @@ main( int argc, char** argv )
   std::string wrkflwtxt;
   wrkflwtxt += "CPP:";
   // -- DOUBLE or FLOAT?
-#if defined MGONGPU_FPTYPE_DOUBLE and defined MGONGPU_FPTYPE2_FLOAT
-  wrkflwtxt += "MIX+"; // mixed fptypes (single precision color algebra #537)
-#elif defined MGONGPU_FPTYPE_DOUBLE
   wrkflwtxt += "DBL+";
-#elif defined MGONGPU_FPTYPE_FLOAT
-  wrkflwtxt += "FLT+";
-#else
-  wrkflwtxt += "???+"; // no path to this statement
-#endif
   // -- CUCOMPLEX or THRUST or STD complex numbers?
 #if defined MGONGPU_CPPCXTYPE_STDCOMPLEX
   wrkflwtxt += "STX:";
@@ -673,13 +665,7 @@ main( int argc, char** argv )
               << "NumIterations               = " << niter << std::endl
               << std::string( SEP79, '-' ) << std::endl;
     std::cout << "Workflow summary            = " << wrkflwtxt << std::endl
-#if defined MGONGPU_FPTYPE_DOUBLE and defined MGONGPU_FPTYPE2_FLOAT
-              << "FP precision                = MIXED (NaN/abnormal=" << nabn << ", zero=" << nzero << ")" << std::endl
-#elif defined MGONGPU_FPTYPE_DOUBLE
               << "FP precision                = DOUBLE (NaN/abnormal=" << nabn << ", zero=" << nzero << ")" << std::endl
-#elif defined MGONGPU_FPTYPE_FLOAT
-              << "FP precision                = FLOAT (NaN/abnormal=" << nabn << ", zero=" << nzero << ")" << std::endl
-#endif
               << "Complex type                = STD::COMPLEX" << std::endl
               << "RanNumb memory layout       = AOSOA[" << neppR << "]"
               << ( neppR == 1 ? " == AOS" : "" )
@@ -787,16 +773,8 @@ main( int argc, char** argv )
              << "\"NumIterations\": " << niter << ", " << std::endl
              << "\"NumThreadsPerBlock\": " << gputhreads << ", " << std::endl
              << "\"NumBlocksPerGrid\": " << gpublocks << ", " << std::endl
-#if defined MGONGPU_FPTYPE_DOUBLE and defined MGONGPU_FPTYPE2_FLOAT
-             << "\"FP precision\": "
-             << "\"MIXED (NaN/abnormal=" << nabn << ")\"," << std::endl
-#elif defined MGONGPU_FPTYPE_DOUBLE
              << "\"FP precision\": "
              << "\"DOUBLE (NaN/abnormal=" << nabn << ")\"," << std::endl
-#elif defined MGONGPU_FPTYPE_FLOAT
-             << "\"FP precision\": "
-             << "\"FLOAT (NaN/abnormal=" << nabn << ")\"," << std::endl
-#endif
              << "\"Complex type\": "
              << "\"STD::COMPLEX\"," << std::endl
              << "\"RanNumb memory layout\": "
