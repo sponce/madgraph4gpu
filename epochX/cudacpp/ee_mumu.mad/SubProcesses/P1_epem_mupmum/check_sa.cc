@@ -503,56 +503,46 @@ main( int argc, char** argv )
   timermap.start( statKey );
 
   double sumgtim = 0;
-  //double sqsgtim = 0;
   double mingtim = genrtimes[0];
   double maxgtim = genrtimes[0];
   for( unsigned int iiter = 0; iiter < niter; ++iiter )
   {
     sumgtim += genrtimes[iiter];
-    //sqsgtim += genrtimes[iiter]*genrtimes[iiter];
     mingtim = std::min( mingtim, genrtimes[iiter] );
     maxgtim = std::max( maxgtim, genrtimes[iiter] );
   }
 
   double sumrtim = 0;
-  //double sqsrtim = 0;
   double minrtim = rambtimes[0];
   double maxrtim = rambtimes[0];
   for( unsigned int iiter = 0; iiter < niter; ++iiter )
   {
     sumrtim += rambtimes[iiter];
-    //sqsrtim += rambtimes[iiter]*rambtimes[iiter];
     minrtim = std::min( minrtim, rambtimes[iiter] );
     maxrtim = std::max( maxrtim, rambtimes[iiter] );
   }
 
   double sumwtim = 0;
-  //double sqswtim = 0;
   double minwtim = wavetimes[0];
   double maxwtim = wavetimes[0];
   for( unsigned int iiter = 0; iiter < niter; ++iiter )
   {
     sumwtim += wavetimes[iiter];
-    //sqswtim += wavetimes[iiter]*wavetimes[iiter];
     minwtim = std::min( minwtim, wavetimes[iiter] );
     maxwtim = std::max( maxwtim, wavetimes[iiter] );
   }
   double meanwtim = sumwtim / niter;
-  //double stdwtim = std::sqrt( sqswtim / niter - meanwtim * meanwtim );
 
   double sumw3atim = 0;
-  //double sqsw3atim = 0;
   double minw3atim = wv3atimes[0];
   double maxw3atim = wv3atimes[0];
   for( unsigned int iiter = 0; iiter < niter; ++iiter )
   {
     sumw3atim += wv3atimes[iiter];
-    //sqsw3atim += wv3atimes[iiter]*wv3atimes[iiter];
     minw3atim = std::min( minw3atim, wv3atimes[iiter] );
     maxw3atim = std::max( maxw3atim, wv3atimes[iiter] );
   }
   double meanw3atim = sumw3atim / niter;
-  //double stdw3atim = std::sqrt( sqsw3atim / niter - meanw3atim * meanw3atim );
 
   const unsigned int nevtALL = hstStats.nevtALL; // total number of ALL events in all iterations
   if( nevtALL != niter * nevt )
@@ -624,13 +614,7 @@ main( int argc, char** argv )
 #elif defined __AVX2__
   wrkflwtxt += "/avx2";
 #elif defined __SSE4_2__
-#ifdef __PPC__
-  wrkflwtxt += "/ppcv";
-#elif defined __ARM_NEON__
-  wrkflwtxt += "/neon";
-#else
   wrkflwtxt += "/sse4";
-#endif
 #else
   wrkflwtxt += "/????"; // no path to this statement
 #endif
@@ -674,7 +658,6 @@ main( int argc, char** argv )
     // Dump all configuration parameters and all results
     std::cout << std::string( SEP79, '*' ) << std::endl
               << "Process                     = " << XSTRINGIFY( MG_EPOCH_PROCESS_ID ) << "_CPP"
-              << " [" << process.getCompiler() << "]"
 #ifdef MGONGPU_INLINE_HELAMPS
               << " [inlineHel=1]"
 #else
@@ -724,7 +707,7 @@ main( int argc, char** argv )
 #ifdef _OPENMP
               << "OMP threads / `nproc --all` = " << omp_get_max_threads() << " / " << nprocall // includes a newline
 #endif
-              //<< "MatrixElements compiler     = " << process.getCompiler() << std::endl
+#endif
               << std::string( SEP79, '-' ) << std::endl
               << "HelicityComb Good/Tot       = " << nGoodHel << "/" << CPPProcess::ncomb << std::endl
               << std::string( SEP79, '-' ) << std::endl

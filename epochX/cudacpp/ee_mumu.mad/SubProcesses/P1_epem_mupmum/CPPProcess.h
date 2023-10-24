@@ -49,9 +49,6 @@ namespace mg5amcCpu
     // Initialize process (read model parameters from file)
     virtual void initProc( const std::string& param_card_name );
 
-    // Retrieve the compiler that was used to build this module
-    static const std::string getCompiler();
-
     // Other methods of this instance (???)
     //const std::vector<fptype>& getMasses() const { return m_masses; }
     //virtual int code() const{ return 1; }

@@ -3,18 +3,13 @@
 // Created by: A. Valassi (Jan 2022) for the MG5aMC CUDACPP plugin.
 // Further modified by: A. Valassi (2022-2023) for the MG5aMC CUDACPP plugin.
 
-#ifndef MATRIXELEMENTKERNELS_H
-#define MATRIXELEMENTKERNELS_H 1
+#pragma once
 
 #include "mgOnGpuConfig.h"
 
 #include "MemoryBuffers.h"
 
-#ifdef __CUDACC__
-namespace mg5amcGpu
-#else
 namespace mg5amcCpu
-#endif
 {
   //--------------------------------------------------------------------------
 
@@ -81,7 +76,6 @@ namespace mg5amcCpu
 
   //--------------------------------------------------------------------------
 
-#ifndef __CUDACC__
   // A class encapsulating matrix element calculations on a CPU host
   class MatrixElementKernelHost final : public MatrixElementKernelBase, public NumberOfEvents
   {
@@ -126,63 +120,4 @@ namespace mg5amcCpu
     HostBufferDenominators m_denominators;
 #endif
   };
-#endif
-
-  //--------------------------------------------------------------------------
-
-#ifdef __CUDACC__
-  // A class encapsulating matrix element calculations on a GPU device
-  class MatrixElementKernelDevice : public MatrixElementKernelBase, public NumberOfEvents
-  {
-  public:
-
-    // Constructor from existing input and output buffers
-    MatrixElementKernelDevice( const BufferMomenta& momenta,         // input: momenta
-                               const BufferGs& gs,                   // input: gs for alphaS
-                               const BufferRndNumHelicity& rndhel,   // input: random numbers for helicity selection
-                               const BufferRndNumColor& rndcol,      // input: random numbers for color selection
-                               BufferMatrixElements& matrixElements, // output: matrix elements
-                               BufferSelectedHelicity& selhel,       // output: helicity selection
-                               BufferSelectedColor& selcol,          // output: color selection
-                               const size_t gpublocks,
-                               const size_t gputhreads );
-
-    // Destructor
-    virtual ~MatrixElementKernelDevice() {}
-
-    // Reset gpublocks and gputhreads
-    void setGrid( const int gpublocks, const int gputhreads );
-
-    // Compute good helicities (returns nGoodHel, the number of good helicity combinations out of ncomb)
-    int computeGoodHelicities() override final;
-
-    // Compute matrix elements
-    void computeMatrixElements( const unsigned int channelId ) override final;
-
-    // Is this a host or device kernel?
-    bool isOnDevice() const override final { return true; }
-
-  private:
-
-    // The buffer for the event-by-event couplings that depends on alphas QCD
-    DeviceBufferCouplings m_couplings;
-
-#ifdef MGONGPU_SUPPORTS_MULTICHANNEL
-    // The buffer for the event-by-event numerators of multichannel factors
-    DeviceBufferNumerators m_numerators;
-
-    // The buffer for the event-by-event denominators of multichannel factors
-    DeviceBufferDenominators m_denominators;
-#endif
-
-    // The number of blocks in the GPU grid
-    size_t m_gpublocks;
-
-    // The number of threads in the GPU grid
-    size_t m_gputhreads;
-  };
-#endif
-
-  //--------------------------------------------------------------------------
 }
-#endif // MATRIXELEMENTKERNELS_H
