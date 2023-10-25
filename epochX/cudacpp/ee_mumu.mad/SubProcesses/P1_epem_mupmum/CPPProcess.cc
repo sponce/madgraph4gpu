@@ -318,26 +318,16 @@ namespace mg5amcCpu {
             ) { /* clang-format on */
     // Start sigmaKin_lines
     // === PART 0 - INITIALISATION (before calculate_wavefunctions) ===
-    // Reset the "matrix elements" - running sums of |M|^2 over helicities for the given event
-    const int npagV = nevt / neppV;
-    for( int ipagV = 0; ipagV < npagV; ++ipagV )
-    {
-      const int ievt0 = ipagV * neppV;
-      fptype* MEs = &( allMEs[ievt0] );
-      fptype_sv& MEs_sv = *reinterpret_cast<fptype_v*>( &( MEs[0] ) );
-      MEs_sv = fptype_sv{ 0 };
-      fptype* numerators = &( allNumerators[ievt0] );
-      fptype* denominators = &( allDenominators[ievt0] );
-      fptype_sv& numerators_sv = *reinterpret_cast<fptype_v*>( &( numerators[0] ) );
-      fptype_sv& denominators_sv = *reinterpret_cast<fptype_v*>( &( denominators[0] ) );
-      numerators_sv = fptype_sv{ 0 };
-      denominators_sv = fptype_sv{ 0 };
-    }
+    const int nevt1 = (nevt+neppV-1)/neppV;
+    memset(allMEs, 0, nevt1*neppV*sizeof(fptype));
+    memset(allNumerators, 0, nevt1*neppV*sizeof(fptype));
+    memset(allDenominators, 0, nevt1*neppV*sizeof(fptype));
 
     // === PART 1 - HELICITY LOOP: CALCULATE WAVEFUNCTIONS ===
     // (in both CUDA and C++, using precomputed good helicities)
 
     // *** START OF PART 1b - C++ (loop on event pages)
+    const int npagV = nevt / neppV;
     const int npagV2 = npagV;            // loop on one SIMD page (neppV events) at a time
 #ifdef _OPENMP
     // OMP multithreading #575 (NB: tested only with gcc11 so far)
