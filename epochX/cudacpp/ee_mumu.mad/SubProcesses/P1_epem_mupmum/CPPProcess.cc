@@ -26,8 +26,6 @@
 #include "MemoryAccessMomenta.h"
 #include "MemoryAccessWavefunctions.h"
 
-#include "MemoryAccessDenominators.h"
-#include "MemoryAccessNumerators.h"
 #include "coloramps.h"
 
 #include <algorithm>
@@ -110,16 +108,16 @@ namespace mg5amcCpu {
       COUPs[idcoup] = HostAccessCouplings::ieventAccessRecordConst( allCOUPs[idcoup], ievt0 ); // dependent couplings, vary event-by-event
     for( size_t iicoup = 0; iicoup < nicoup; iicoup++ )
       COUPs[ndcoup + iicoup] = allCOUPs[ndcoup + iicoup]; // independent couplings, fixed for all events
-    fptype* MEs = HostAccessMatrixElements::ieventAccessRecord( allMEs, ievt0 );
-    fptype* numerators = HostAccessNumerators::ieventAccessRecord( allNumerators, ievt0 );
-    fptype* denominators = HostAccessDenominators::ieventAccessRecord( allDenominators, ievt0 );
+    fptype* MEs = &( allMEs[ievt0] );
+    fptype* numerators = KernelAccessGs<false>::ieventAccessRecord( allNumerators, ievt0 );
+    fptype* denominators = KernelAccessGs<false>::ieventAccessRecord( allDenominators, ievt0 );
 
     // Reset color flows (reset jamp_sv) at the beginning of a new event or event page
     jamp_sv[0] = cxzero_sv();
 
     // Numerators and denominators for the current event (CUDA) or SIMD event page (C++)
-    fptype_sv& numerators_sv = HostAccessNumerators::kernelAccess( numerators );
-    fptype_sv& denominators_sv = HostAccessDenominators::kernelAccess( denominators );
+    fptype_sv& numerators_sv = KernelAccessGs<false>::kernelAccess( numerators );
+    fptype_sv& denominators_sv = KernelAccessGs<false>::kernelAccess( denominators );
 
     // *** DIAGRAM 1 OF 2 ***
 
@@ -175,7 +173,7 @@ namespace mg5amcCpu {
     // *** STORE THE RESULTS ***
 
     // NB: calculate_wavefunctions ADDS |M|^2 for a given ihel to the running sum of |M|^2 over helicities for the given event(s)
-    fptype_sv& MEs_sv = HostAccessMatrixElements::kernelAccess( MEs );
+    fptype_sv& MEs_sv = KernelAccessMatrixElements<false>::kernelAccess( MEs );
     MEs_sv += deltaMEs; // fix #435
     return;
   }
@@ -325,13 +323,13 @@ namespace mg5amcCpu {
     for( int ipagV = 0; ipagV < npagV; ++ipagV )
     {
       const int ievt0 = ipagV * neppV;
-      fptype* MEs = HostAccessMatrixElements::ieventAccessRecord( allMEs, ievt0 );
-      fptype_sv& MEs_sv = HostAccessMatrixElements::kernelAccess( MEs );
+      fptype* MEs = &( allMEs[ievt0] );
+      fptype_sv& MEs_sv = fptypevFromAlignedArray( MEs[0] );
       MEs_sv = fptype_sv{ 0 };
-      fptype* numerators = HostAccessNumerators::ieventAccessRecord( allNumerators, ievt0 );
-      fptype* denominators = HostAccessDenominators::ieventAccessRecord( allDenominators, ievt0 );
-      fptype_sv& numerators_sv = HostAccessNumerators::kernelAccess( numerators );
-      fptype_sv& denominators_sv = HostAccessDenominators::kernelAccess( denominators );
+      fptype* numerators = KernelAccessGs<false>::ieventAccessRecord( allNumerators, ievt0 );
+      fptype* denominators = KernelAccessGs<false>::ieventAccessRecord( allDenominators, ievt0 );
+      fptype_sv& numerators_sv = KernelAccessGs<false>::kernelAccess( numerators );
+      fptype_sv& denominators_sv = KernelAccessGs<false>::kernelAccess( denominators );
       numerators_sv = fptype_sv{ 0 };
       denominators_sv = fptype_sv{ 0 };
     }
@@ -363,7 +361,7 @@ namespace mg5amcCpu {
       for( int ighel = 0; ighel < cNGoodHel; ighel++ ) {
         const int ihel = cGoodHel[ighel];
         calculate_wavefunctions( ihel, allmomenta, allcouplings, allMEs, channelId, allNumerators, allDenominators, &jamp2_sv, ievt00 );
-        MEs_ighel[ighel] = HostAccessMatrixElements::kernelAccess( HostAccessMatrixElements::ieventAccessRecord( allMEs, ievt00 ) );
+        MEs_ighel[ighel] = KernelAccessMatrixElements<false>::kernelAccess( &( allMEs[ievt00] ) );
       }
       // Event-by-event random choice of helicity #403
       for( int ieppV = 0; ieppV < neppV; ++ieppV ) {
@@ -400,14 +398,14 @@ namespace mg5amcCpu {
     // https://www.uzh.ch/cmsssl/physik/dam/jcr:2e24b7b1-f4d7-4160-817e-47b13dbf1d7c/Handout_4_2016-UZH.pdf]
     for( int ipagV = 0; ipagV < npagV; ++ipagV ) {
       const int ievt0 = ipagV * neppV;
-      fptype* MEs = HostAccessMatrixElements::ieventAccessRecord( allMEs, ievt0 );
-      fptype_sv& MEs_sv = HostAccessMatrixElements::kernelAccess( MEs );
+      fptype* MEs = &( allMEs[ievt0] );
+      fptype_sv& MEs_sv = KernelAccessMatrixElements<false>::kernelAccess( MEs );
       MEs_sv /= 4;
       if( channelId > 0 ) {
-        fptype* numerators = HostAccessNumerators::ieventAccessRecord( allNumerators, ievt0 );
-        fptype* denominators = HostAccessDenominators::ieventAccessRecord( allDenominators, ievt0 );
-        fptype_sv& numerators_sv = HostAccessNumerators::kernelAccess( numerators );
-        fptype_sv& denominators_sv = HostAccessDenominators::kernelAccess( denominators );
+        fptype* numerators = KernelAccessGs<false>::ieventAccessRecord( allNumerators, ievt0 );
+        fptype* denominators = KernelAccessGs<false>::ieventAccessRecord( allDenominators, ievt0 );
+        fptype_sv& numerators_sv = KernelAccessGs<false>::kernelAccess( numerators );
+        fptype_sv& denominators_sv = KernelAccessGs<false>::kernelAccess( denominators );
         MEs_sv *= numerators_sv / denominators_sv;
       }
     }
