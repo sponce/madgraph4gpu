@@ -44,34 +44,21 @@
 // Process: e+ e- > mu+ mu- WEIGHTED<=4 @1
 
 namespace mg5amcCpu {
-  constexpr int nw6 = CPPProcess::nw6;     // dimensions of each wavefunction (HELAS KEK 91-11): e.g. 6 for e+ e- -> mu+ mu- (fermions and vectors)
-  constexpr int npar = CPPProcess::npar;   // #particles in total (external = initial + final): e.g. 4 for e+ e- -> mu+ mu-
-  constexpr int ncomb = CPPProcess::ncomb; // #helicity combinations: e.g. 16 for e+ e- -> mu+ mu- (2**4 = fermion spin up/down ** npar)
-
-  // [NB: I am currently unable to get the right value of nwf in CPPProcess.h - will hardcode it in CPPProcess.cc instead (#644)]
-  //using CPPProcess::nwf; // #wavefunctions = #external (npar) + #internal: e.g. 5 for e+ e- -> mu+ mu- (1 internal is gamma or Z)
-
   using Parameters_sm_dependentCouplings::ndcoup;   // #couplings that vary event by event (depend on running alphas QCD)
   using Parameters_sm_independentCouplings::nicoup; // #couplings that are fixed for all events (do not depend on running alphas QCD)
 
   // Physics parameters (masses, coupling, etc...)
-  // For CUDA performance, hardcoded constexpr's would be better: fewer registers and a tiny throughput increase
-  // However, physics parameters are user-defined through card files: use CUDA constant memory instead (issue #39)
-  // [NB if hardcoded parameters are used, it's better to define them here to avoid silent shadowing (issue #263)]
   static fptype cIPD[2];
   static fptype cIPC[6];
 
   // Helicity combinations (and filtering of "good" helicity combinations)
-  static short cHel[ncomb][npar];
+  static short cHel[CPPProcess::ncomb][CPPProcess::npar];
   static int cNGoodHel;
-  static int cGoodHel[ncomb];
-
-  //--------------------------------------------------------------------------
+  static int cGoodHel[CPPProcess::ncomb];
 
   // Evaluate |M|^2 for each subprocess
   // NB: calculate_wavefunctions ADDS |M|^2 for a given ihel to the running sum of |M|^2 over helicities for the given event(s)
   // (similarly, it also ADDS the numerator and denominator for a given ihel to their running sums over helicities)
-  // In CUDA, this device function computes the ME for a single event
   // In C++, this function computes the ME for a single event "page" or SIMD vector
   __device__ INLINE void /* clang-format off */
   calculate_wavefunctions( int ihel,
@@ -85,15 +72,6 @@ namespace mg5amcCpu {
                            , const int ievt0             // input: first event number in current C++ event page (for CUDA, ievt depends on threadid)
                            ) {
     using namespace mg5amcCpu;
-    using M_ACCESS = HostAccessMomenta;         // non-trivial access: buffer includes all events
-    using E_ACCESS = HostAccessMatrixElements;  // non-trivial access: buffer includes all events
-    using W_ACCESS = HostAccessWavefunctions;   // TRIVIAL ACCESS (no kernel splitting yet): buffer for one event
-    using A_ACCESS = HostAccessAmplitudes;      // TRIVIAL ACCESS (no kernel splitting yet): buffer for one event
-    using CD_ACCESS = HostAccessCouplings;      // non-trivial access (dependent couplings): buffer includes all events
-    using CI_ACCESS = HostAccessCouplingsFixed; // TRIVIAL access (independent couplings): buffer for one event
-    using NUM_ACCESS = HostAccessNumerators;    // non-trivial access: buffer includes all events
-    using DEN_ACCESS = HostAccessDenominators;  // non-trivial access: buffer includes all events
-    mgDebug( 0, __FUNCTION__ );
 
     // The variable nwf (which is specific to each P1 subdirectory, #644) is only used here
     // It is hardcoded here because various attempts to hardcode it in CPPProcess.h at generation time gave the wrong result...
@@ -104,7 +82,7 @@ namespace mg5amcCpu {
     // ** NB: in other words, amplitudes and wavefunctions still have TRIVIAL ACCESS: there is currently no need
     // ** NB: to have large memory structurs for wavefunctions/amplitudes in all events (no kernel splitting yet)!
     //MemoryBufferWavefunctions w_buffer[nwf]{ neppV };
-    cxtype_sv w_sv[nwf][nw6]; // particle wavefunctions within Feynman diagrams (nw6 is often 6, the dimension of spin 1/2 or spin 1 particles)
+    cxtype_sv w_sv[nwf][CPPProcess::nw6]; // particle wavefunctions within Feynman diagrams (nw6 is often 6, the dimension of spin 1/2 or spin 1 particles)
     cxtype_sv amp_sv[1];      // invariant amplitude for one given Feynman diagram
 
     // Proof of concept for using fptype* in the interface
@@ -122,38 +100,38 @@ namespace mg5amcCpu {
     constexpr size_t nxcoup = ndcoup + nicoup; // both dependent and independent couplings
     const fptype* allCOUPs[nxcoup];
     for( size_t idcoup = 0; idcoup < ndcoup; idcoup++ )
-      allCOUPs[idcoup] = CD_ACCESS::idcoupAccessBufferConst( allcouplings, idcoup ); // dependent couplings, vary event-by-event
+      allCOUPs[idcoup] = HostAccessCouplings::idcoupAccessBufferConst( allcouplings, idcoup ); // dependent couplings, vary event-by-event
     for( size_t iicoup = 0; iicoup < nicoup; iicoup++ )
-      allCOUPs[ndcoup + iicoup] = CI_ACCESS::iicoupAccessBufferConst( cIPC, iicoup ); // independent couplings, fixed for all events
+      allCOUPs[ndcoup + iicoup] = HostAccessCouplingsFixed::iicoupAccessBufferConst( cIPC, iicoup ); // independent couplings, fixed for all events
     // C++ kernels take input/output buffers with momenta/MEs for one specific event (the first in the current event page)
-    const fptype* momenta = M_ACCESS::ieventAccessRecordConst( allmomenta, ievt0 );
+    const fptype* momenta = HostAccessMomenta::ieventAccessRecordConst( allmomenta, ievt0 );
     const fptype* COUPs[nxcoup];
     for( size_t idcoup = 0; idcoup < ndcoup; idcoup++ )
-      COUPs[idcoup] = CD_ACCESS::ieventAccessRecordConst( allCOUPs[idcoup], ievt0 ); // dependent couplings, vary event-by-event
+      COUPs[idcoup] = HostAccessCouplings::ieventAccessRecordConst( allCOUPs[idcoup], ievt0 ); // dependent couplings, vary event-by-event
     for( size_t iicoup = 0; iicoup < nicoup; iicoup++ )
       COUPs[ndcoup + iicoup] = allCOUPs[ndcoup + iicoup]; // independent couplings, fixed for all events
-    fptype* MEs = E_ACCESS::ieventAccessRecord( allMEs, ievt0 );
-    fptype* numerators = NUM_ACCESS::ieventAccessRecord( allNumerators, ievt0 );
-    fptype* denominators = DEN_ACCESS::ieventAccessRecord( allDenominators, ievt0 );
+    fptype* MEs = HostAccessMatrixElements::ieventAccessRecord( allMEs, ievt0 );
+    fptype* numerators = HostAccessNumerators::ieventAccessRecord( allNumerators, ievt0 );
+    fptype* denominators = HostAccessDenominators::ieventAccessRecord( allDenominators, ievt0 );
 
     // Reset color flows (reset jamp_sv) at the beginning of a new event or event page
     jamp_sv[0] = cxzero_sv();
 
     // Numerators and denominators for the current event (CUDA) or SIMD event page (C++)
-    fptype_sv& numerators_sv = NUM_ACCESS::kernelAccess( numerators );
-    fptype_sv& denominators_sv = DEN_ACCESS::kernelAccess( denominators );
+    fptype_sv& numerators_sv = HostAccessNumerators::kernelAccess( numerators );
+    fptype_sv& denominators_sv = HostAccessDenominators::kernelAccess( denominators );
 
     // *** DIAGRAM 1 OF 2 ***
 
     // Wavefunction(s) for diagram number 1
-    opzxxx<M_ACCESS, W_ACCESS>( momenta, cHel[ihel][0], -1, w_fp[0], 0 ); // NB: opzxxx only uses pz
-    imzxxx<M_ACCESS, W_ACCESS>( momenta, cHel[ihel][1], +1, w_fp[1], 1 ); // NB: imzxxx only uses pz
-    ixzxxx<M_ACCESS, W_ACCESS>( momenta, cHel[ihel][2], -1, w_fp[2], 2 );
-    oxzxxx<M_ACCESS, W_ACCESS>( momenta, cHel[ihel][3], +1, w_fp[3], 3 );
-    FFV1P0_3<W_ACCESS, CI_ACCESS>( w_fp[1], w_fp[0], COUPs[0], 0., 0., w_fp[4] );
+    opzxxx<HostAccessMomenta, HostAccessWavefunctions>( momenta, cHel[ihel][0], -1, w_fp[0], 0 ); // NB: opzxxx only uses pz
+    imzxxx<HostAccessMomenta, HostAccessWavefunctions>( momenta, cHel[ihel][1], +1, w_fp[1], 1 ); // NB: imzxxx only uses pz
+    ixzxxx<HostAccessMomenta, HostAccessWavefunctions>( momenta, cHel[ihel][2], -1, w_fp[2], 2 );
+    oxzxxx<HostAccessMomenta, HostAccessWavefunctions>( momenta, cHel[ihel][3], +1, w_fp[3], 3 );
+    FFV1P0_3<HostAccessWavefunctions, HostAccessCouplingsFixed>( w_fp[1], w_fp[0], COUPs[0], 0., 0., w_fp[4] );
 
     // Amplitude(s) for diagram number 1
-    FFV1_0<W_ACCESS, A_ACCESS, CI_ACCESS>( w_fp[2], w_fp[3], w_fp[4], COUPs[0], &amp_fp[0] );
+    FFV1_0<HostAccessWavefunctions, HostAccessAmplitudes, HostAccessCouplingsFixed>( w_fp[2], w_fp[3], w_fp[4], COUPs[0], &amp_fp[0] );
     if( channelId == 1 ) numerators_sv += cxabs2( amp_sv[0] );
     if( channelId != 0 ) denominators_sv += cxabs2( amp_sv[0] );
     jamp_sv[0] -= amp_sv[0];
@@ -161,9 +139,9 @@ namespace mg5amcCpu {
     // *** DIAGRAM 2 OF 2 ***
 
     // Wavefunction(s) for diagram number 2
-    FFV2_4_3<W_ACCESS, CI_ACCESS>( w_fp[1], w_fp[0], COUPs[1], COUPs[2], cIPD[0], cIPD[1], w_fp[4] );
+    FFV2_4_3<HostAccessWavefunctions, HostAccessCouplingsFixed>( w_fp[1], w_fp[0], COUPs[1], COUPs[2], cIPD[0], cIPD[1], w_fp[4] );
     // Amplitude(s) for diagram number 2
-    FFV2_4_0<W_ACCESS, A_ACCESS, CI_ACCESS>( w_fp[2], w_fp[3], w_fp[4], COUPs[1], COUPs[2], &amp_fp[0] );
+    FFV2_4_0<HostAccessWavefunctions, HostAccessAmplitudes, HostAccessCouplingsFixed>( w_fp[2], w_fp[3], w_fp[4], COUPs[1], COUPs[2], &amp_fp[0] );
     if( channelId == 2 ) numerators_sv += cxabs2( amp_sv[0] );
     if( channelId != 0 ) denominators_sv += cxabs2( amp_sv[0] );
     jamp_sv[0] -= amp_sv[0];
@@ -197,9 +175,8 @@ namespace mg5amcCpu {
     // *** STORE THE RESULTS ***
 
     // NB: calculate_wavefunctions ADDS |M|^2 for a given ihel to the running sum of |M|^2 over helicities for the given event(s)
-    fptype_sv& MEs_sv = E_ACCESS::kernelAccess( MEs );
+    fptype_sv& MEs_sv = HostAccessMatrixElements::kernelAccess( MEs );
     MEs_sv += deltaMEs; // fix #435
-    mgDebug( 1, __FUNCTION__ );
     return;
   }
 
@@ -263,14 +240,12 @@ namespace mg5amcCpu {
                              , const int nevt     // input: #events (for cuda: nevt == ndim == gpublocks*gputhreads)
                              ) { /* clang-format on */
     using namespace mg5amcCpu;
-    using G_ACCESS = HostAccessGs;
-    using C_ACCESS = HostAccessCouplings;
     for( int ipagV = 0; ipagV < nevt / neppV; ++ipagV )
     {
       const int ievt0 = ipagV * neppV;
       const fptype* gs = MemoryAccessGs::ieventAccessRecordConst( allgs, ievt0 );
       fptype* couplings = MemoryAccessCouplings::ieventAccessRecord( allcouplings, ievt0 );
-      G2COUP<G_ACCESS, C_ACCESS>( gs, couplings );
+      G2COUP<HostAccessGs, HostAccessCouplings>( gs, couplings );
     }
   }
 
@@ -294,7 +269,7 @@ namespace mg5amcCpu {
     const int npagV2 = npagV;            // loop on one SIMD page (neppV events) at a time
     for( int ipagV2 = 0; ipagV2 < npagV2; ++ipagV2 ) {
       const int ievt00 = ipagV2 * neppV; // loop on one SIMD page (neppV events) at a time
-      for( int ihel = 0; ihel < ncomb; ihel++ ) {
+      for( int ihel = 0; ihel < CPPProcess::ncomb; ihel++ ) {
         // NEW IMPLEMENTATION OF GETGOODHEL (#630): RESET THE RUNNING SUM OVER HELICITIES TO 0 BEFORE ADDING A NEW HELICITY
         for( int ieppV = 0; ieppV < neppV; ++ieppV ) {
           const int ievt = ievt00 + ieppV;
@@ -316,15 +291,15 @@ namespace mg5amcCpu {
   int                                          // output: nGoodHel (the number of good helicity combinations out of ncomb)
   sigmaKin_setGoodHel( const bool* isGoodHel ) { // input: isGoodHel[ncomb] - host array (CUDA and C++)
     int nGoodHel = 0;
-    int goodHel[ncomb] = { 0 }; // all zeros https://en.cppreference.com/w/c/language/array_initialization#Notes
-    for( int ihel = 0; ihel < ncomb; ihel++ ) {
+    int goodHel[CPPProcess::ncomb] = { 0 }; // all zeros https://en.cppreference.com/w/c/language/array_initialization#Notes
+    for( int ihel = 0; ihel < CPPProcess::ncomb; ihel++ ) {
       if( isGoodHel[ihel] ) {
         goodHel[nGoodHel] = ihel;
         nGoodHel++;
       }
     }
     cNGoodHel = nGoodHel;
-    for( int ihel = 0; ihel < ncomb; ihel++ ) cGoodHel[ihel] = goodHel[ihel];
+    for( int ihel = 0; ihel < CPPProcess::ncomb; ihel++ ) cGoodHel[ihel] = goodHel[ihel];
     return nGoodHel;
   }
 
@@ -342,14 +317,7 @@ namespace mg5amcCpu {
             int* allselhel,                // output: helicity selection[nevt]
             int* allselcol                 // output: helicity selection[nevt]
             , const int nevt               // input: #events (for cuda: nevt == ndim == gpublocks*gputhreads)
-            ) /* clang-format on */
-  {
-    mgDebugInitialise();
-
-    using E_ACCESS = HostAccessMatrixElements; // non-trivial access: buffer includes all events
-    using NUM_ACCESS = HostAccessNumerators;   // non-trivial access: buffer includes all events
-    using DEN_ACCESS = HostAccessDenominators; // non-trivial access: buffer includes all events
-
+            ) { /* clang-format on */
     // Start sigmaKin_lines
     // === PART 0 - INITIALISATION (before calculate_wavefunctions) ===
     // Reset the "matrix elements" - running sums of |M|^2 over helicities for the given event
@@ -357,13 +325,13 @@ namespace mg5amcCpu {
     for( int ipagV = 0; ipagV < npagV; ++ipagV )
     {
       const int ievt0 = ipagV * neppV;
-      fptype* MEs = E_ACCESS::ieventAccessRecord( allMEs, ievt0 );
-      fptype_sv& MEs_sv = E_ACCESS::kernelAccess( MEs );
+      fptype* MEs = HostAccessMatrixElements::ieventAccessRecord( allMEs, ievt0 );
+      fptype_sv& MEs_sv = HostAccessMatrixElements::kernelAccess( MEs );
       MEs_sv = fptype_sv{ 0 };
-      fptype* numerators = NUM_ACCESS::ieventAccessRecord( allNumerators, ievt0 );
-      fptype* denominators = DEN_ACCESS::ieventAccessRecord( allDenominators, ievt0 );
-      fptype_sv& numerators_sv = NUM_ACCESS::kernelAccess( numerators );
-      fptype_sv& denominators_sv = DEN_ACCESS::kernelAccess( denominators );
+      fptype* numerators = HostAccessNumerators::ieventAccessRecord( allNumerators, ievt0 );
+      fptype* denominators = HostAccessDenominators::ieventAccessRecord( allDenominators, ievt0 );
+      fptype_sv& numerators_sv = HostAccessNumerators::kernelAccess( numerators );
+      fptype_sv& denominators_sv = HostAccessDenominators::kernelAccess( denominators );
       numerators_sv = fptype_sv{ 0 };
       denominators_sv = fptype_sv{ 0 };
     }
@@ -390,23 +358,19 @@ namespace mg5amcCpu {
       // Running sum of partial amplitudes squared for event by event color selection (#402)
       // (jamp2[1][1][neppV] for the SIMD vector of events processed in calculate_wavefunctions)
       fptype_sv jamp2_sv = { 0 };
-      fptype_sv MEs_ighel[ncomb] = { 0 };    // sum of MEs for all good helicities up to ighel (for the first - and/or only - neppV page)
+      fptype_sv MEs_ighel[CPPProcess::ncomb] = { 0 };    // sum of MEs for all good helicities up to ighel (for the first - and/or only - neppV page)
       const int ievt00 = ipagV2 * neppV; // loop on one SIMD page (neppV events) at a time
       for( int ighel = 0; ighel < cNGoodHel; ighel++ ) {
         const int ihel = cGoodHel[ighel];
         calculate_wavefunctions( ihel, allmomenta, allcouplings, allMEs, channelId, allNumerators, allDenominators, &jamp2_sv, ievt00 );
-        MEs_ighel[ighel] = E_ACCESS::kernelAccess( E_ACCESS::ieventAccessRecord( allMEs, ievt00 ) );
+        MEs_ighel[ighel] = HostAccessMatrixElements::kernelAccess( HostAccessMatrixElements::ieventAccessRecord( allMEs, ievt00 ) );
       }
       // Event-by-event random choice of helicity #403
       for( int ieppV = 0; ieppV < neppV; ++ieppV ) {
         const int ievt = ievt00 + ieppV;
         //printf( "sigmaKin: ievt=%4d rndhel=%f\n", ievt, allrndhel[ievt] );
         for( int ighel = 0; ighel < cNGoodHel; ighel++ ) {
-#if defined MGONGPU_CPPSIMD
           const bool okhel = allrndhel[ievt] < ( MEs_ighel[ighel][ieppV] / MEs_ighel[cNGoodHel - 1][ieppV] );
-#else
-          const bool okhel = allrndhel[ievt] < ( MEs_ighel[ighel] / MEs_ighel[cNGoodHel - 1] );
-#endif
           if( okhel ) {
             const int ihelF = cGoodHel[ighel] + 1; // NB Fortran [1,ncomb], cudacpp [0,ncomb-1]
             allselhel[ievt] = ihelF;
@@ -421,11 +385,7 @@ namespace mg5amcCpu {
       if( mgOnGpu::icolamp[channelIdC][0] ) targetamp += jamp2_sv;
       for( int ieppV = 0; ieppV < neppV; ++ieppV ) {
         const int ievt = ievt00 + ieppV;
-#if defined MGONGPU_CPPSIMD
         const bool okcol = allrndcol[ievt] < ( targetamp[ieppV] / targetamp[ieppV] );
-#else
-        const bool okcol = allrndcol[ievt] < ( targetamp / targetamp );
-#endif
         if( okcol ) {
           allselcol[ievt] = 1; // NB Fortran [1,1], cudacpp [0,0]
           break;
@@ -440,18 +400,17 @@ namespace mg5amcCpu {
     // https://www.uzh.ch/cmsssl/physik/dam/jcr:2e24b7b1-f4d7-4160-817e-47b13dbf1d7c/Handout_4_2016-UZH.pdf]
     for( int ipagV = 0; ipagV < npagV; ++ipagV ) {
       const int ievt0 = ipagV * neppV;
-      fptype* MEs = E_ACCESS::ieventAccessRecord( allMEs, ievt0 );
-      fptype_sv& MEs_sv = E_ACCESS::kernelAccess( MEs );
+      fptype* MEs = HostAccessMatrixElements::ieventAccessRecord( allMEs, ievt0 );
+      fptype_sv& MEs_sv = HostAccessMatrixElements::kernelAccess( MEs );
       MEs_sv /= 4;
       if( channelId > 0 ) {
-        fptype* numerators = NUM_ACCESS::ieventAccessRecord( allNumerators, ievt0 );
-        fptype* denominators = DEN_ACCESS::ieventAccessRecord( allDenominators, ievt0 );
-        fptype_sv& numerators_sv = NUM_ACCESS::kernelAccess( numerators );
-        fptype_sv& denominators_sv = DEN_ACCESS::kernelAccess( denominators );
+        fptype* numerators = HostAccessNumerators::ieventAccessRecord( allNumerators, ievt0 );
+        fptype* denominators = HostAccessDenominators::ieventAccessRecord( allDenominators, ievt0 );
+        fptype_sv& numerators_sv = HostAccessNumerators::kernelAccess( numerators );
+        fptype_sv& denominators_sv = HostAccessDenominators::kernelAccess( denominators );
         MEs_sv *= numerators_sv / denominators_sv;
       }
     }
-    mgDebugFinalise();
   }
 
 } // end namespace
