@@ -109,15 +109,15 @@ namespace mg5amcCpu {
     for( size_t iicoup = 0; iicoup < nicoup; iicoup++ )
       COUPs[ndcoup + iicoup] = allCOUPs[ndcoup + iicoup]; // independent couplings, fixed for all events
     fptype* MEs = &( allMEs[ievt0] );
-    fptype* numerators = KernelAccessGs<false>::ieventAccessRecord( allNumerators, ievt0 );
-    fptype* denominators = KernelAccessGs<false>::ieventAccessRecord( allDenominators, ievt0 );
+    fptype* numerators = &( allNumerators[ievt0] );
+    fptype* denominators = &( allDenominators[ievt0] );
 
     // Reset color flows (reset jamp_sv) at the beginning of a new event or event page
     jamp_sv[0] = cxzero_sv();
 
     // Numerators and denominators for the current event (CUDA) or SIMD event page (C++)
-    fptype_sv& numerators_sv = KernelAccessGs<false>::kernelAccess( numerators );
-    fptype_sv& denominators_sv = KernelAccessGs<false>::kernelAccess( denominators );
+    fptype_sv& numerators_sv = *reinterpret_cast<fptype_v*>( &( numerators[0] ) );
+    fptype_sv& denominators_sv = *reinterpret_cast<fptype_v*>( &( denominators[0] ) );
 
     // *** DIAGRAM 1 OF 2 ***
 
@@ -173,7 +173,7 @@ namespace mg5amcCpu {
     // *** STORE THE RESULTS ***
 
     // NB: calculate_wavefunctions ADDS |M|^2 for a given ihel to the running sum of |M|^2 over helicities for the given event(s)
-    fptype_sv& MEs_sv = KernelAccessMatrixElements<false>::kernelAccess( MEs );
+    fptype_sv& MEs_sv = *reinterpret_cast<fptype_v*>( &( MEs[0] ) );
     MEs_sv += deltaMEs; // fix #435
     return;
   }
@@ -241,7 +241,7 @@ namespace mg5amcCpu {
     for( int ipagV = 0; ipagV < nevt / neppV; ++ipagV )
     {
       const int ievt0 = ipagV * neppV;
-      const fptype* gs = MemoryAccessGs::ieventAccessRecordConst( allgs, ievt0 );
+      const fptype* gs = &( allgs[ievt0] );
       fptype* couplings = MemoryAccessCouplings::ieventAccessRecord( allcouplings, ievt0 );
       G2COUP<HostAccessGs, HostAccessCouplings>( gs, couplings );
     }
@@ -324,12 +324,12 @@ namespace mg5amcCpu {
     {
       const int ievt0 = ipagV * neppV;
       fptype* MEs = &( allMEs[ievt0] );
-      fptype_sv& MEs_sv = fptypevFromAlignedArray( MEs[0] );
+      fptype_sv& MEs_sv = *reinterpret_cast<fptype_v*>( &( MEs[0] ) );
       MEs_sv = fptype_sv{ 0 };
-      fptype* numerators = KernelAccessGs<false>::ieventAccessRecord( allNumerators, ievt0 );
-      fptype* denominators = KernelAccessGs<false>::ieventAccessRecord( allDenominators, ievt0 );
-      fptype_sv& numerators_sv = KernelAccessGs<false>::kernelAccess( numerators );
-      fptype_sv& denominators_sv = KernelAccessGs<false>::kernelAccess( denominators );
+      fptype* numerators = &( allNumerators[ievt0] );
+      fptype* denominators = &( allDenominators[ievt0] );
+      fptype_sv& numerators_sv = *reinterpret_cast<fptype_v*>( &( numerators[0] ) );
+      fptype_sv& denominators_sv = *reinterpret_cast<fptype_v*>( &( denominators[0] ) );
       numerators_sv = fptype_sv{ 0 };
       denominators_sv = fptype_sv{ 0 };
     }
@@ -361,7 +361,7 @@ namespace mg5amcCpu {
       for( int ighel = 0; ighel < cNGoodHel; ighel++ ) {
         const int ihel = cGoodHel[ighel];
         calculate_wavefunctions( ihel, allmomenta, allcouplings, allMEs, channelId, allNumerators, allDenominators, &jamp2_sv, ievt00 );
-        MEs_ighel[ighel] = KernelAccessMatrixElements<false>::kernelAccess( &( allMEs[ievt00] ) );
+        MEs_ighel[ighel] = *reinterpret_cast<fptype_v*>( &( allMEs[ievt00] ) );
       }
       // Event-by-event random choice of helicity #403
       for( int ieppV = 0; ieppV < neppV; ++ieppV ) {
@@ -399,13 +399,13 @@ namespace mg5amcCpu {
     for( int ipagV = 0; ipagV < npagV; ++ipagV ) {
       const int ievt0 = ipagV * neppV;
       fptype* MEs = &( allMEs[ievt0] );
-      fptype_sv& MEs_sv = KernelAccessMatrixElements<false>::kernelAccess( MEs );
+      fptype_sv& MEs_sv = *reinterpret_cast<fptype_v*>( &( MEs[0] ) );
       MEs_sv /= 4;
       if( channelId > 0 ) {
-        fptype* numerators = KernelAccessGs<false>::ieventAccessRecord( allNumerators, ievt0 );
-        fptype* denominators = KernelAccessGs<false>::ieventAccessRecord( allDenominators, ievt0 );
-        fptype_sv& numerators_sv = KernelAccessGs<false>::kernelAccess( numerators );
-        fptype_sv& denominators_sv = KernelAccessGs<false>::kernelAccess( denominators );
+        fptype* numerators = &( allNumerators[ievt0] );
+        fptype* denominators = &( allDenominators[ievt0] );
+        fptype_sv& numerators_sv = *reinterpret_cast<fptype_v*>( &( numerators[0] ) );
+        fptype_sv& denominators_sv = *reinterpret_cast<fptype_v*>( &( denominators[0] ) );
         MEs_sv *= numerators_sv / denominators_sv;
       }
     }

@@ -117,15 +117,7 @@ namespace mg5amcCpu
     static __host__ __device__ inline fptype_sv&
     kernelAccess( fptype* buffer )
     {
-      fptype& out = kernelAccess_s( buffer );
-#ifndef MGONGPU_CPPSIMD
-      return out;
-#else
-      // NB: derived from MemoryAccessMomenta, restricting the implementation to contiguous aligned arrays (#435)
-      static_assert( mg5amcCpu::HostBufferGs::isaligned() ); // ASSUME ALIGNED ARRAYS (reinterpret_cast will segfault otherwise!)
-      //assert( (size_t)( buffer ) % mgOnGpu::cppAlign == 0 ); // ASSUME ALIGNED ARRAYS (reinterpret_cast will segfault otherwise!)
-      return mg5amcCpu::fptypevFromAlignedArray( out ); // SIMD bulk load of neppV, use reinterpret_cast
-#endif
+      return mg5amcCpu::fptypevFromAlignedArray( buffer[0] ); // SIMD bulk load of neppV, use reinterpret_cast
     }
 
     // Locate a field (output) in a memory buffer (input) from a kernel event-indexing mechanism (internal) and the given field indexes (input)

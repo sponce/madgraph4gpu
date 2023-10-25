@@ -116,7 +116,7 @@ namespace mg5amcCpu
     // [Signature (non const, SCALAR OR VECTOR) ===> fptype_sv& kernelAccess( const fptype* buffer ) <===]
     static __host__ __device__ inline fptype_sv& kernelAccess( fptype* buffer ) {
       // SIMD bulk load of neppV, use reinterpret_cast
-      return mg5amcCpu::fptypevFromAlignedArray( kernelAccess_s( buffer ) );
+      return mg5amcCpu::fptypevFromAlignedArray( buffer[0] );
     }
 
     // Locate a field (output) in a memory buffer (input) from a kernel event-indexing mechanism (internal) and the given field indexes (input)
