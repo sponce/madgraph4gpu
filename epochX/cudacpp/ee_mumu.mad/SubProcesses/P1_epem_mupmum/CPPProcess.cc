@@ -316,7 +316,6 @@ namespace mg5amcCpu {
             int* allselcol                 // output: helicity selection[nevt]
             , const int nevt               // input: #events (for cuda: nevt == ndim == gpublocks*gputhreads)
             ) { /* clang-format on */
-    // Start sigmaKin_lines
     // === PART 0 - INITIALISATION (before calculate_wavefunctions) ===
     const int nevt1 = (nevt+neppV-1)/neppV;
     memset(allMEs, 0, nevt1*neppV*sizeof(fptype));
@@ -328,51 +327,37 @@ namespace mg5amcCpu {
 
     // *** START OF PART 1b - C++ (loop on event pages)
     const int npagV = nevt / neppV;
-    const int npagV2 = npagV;            // loop on one SIMD page (neppV events) at a time
 #ifdef _OPENMP
-    // OMP multithreading #575 (NB: tested only with gcc11 so far)
-    // See https://www.openmp.org/specifications/
-    // - default(none): no variables are shared by default
-    // - shared: as the name says
-    // - private: give each thread its own copy, without initialising
-    // - firstprivate: give each thread its own copy, and initialise with value from outside
-#define _OMPLIST0 allcouplings, allMEs, allmomenta, allrndcol, allrndhel, allselcol, allselhel, cGoodHel, cNGoodHel, npagV2
-#define _OMPLIST1 , allDenominators, allNumerators, channelId, mgOnGpu::icolamp
-#pragma omp parallel for default( none ) shared( _OMPLIST0 _OMPLIST1 )
-#undef _OMPLIST0
-#undef _OMPLIST1
+#pragma omp parallel for default( none ) shared( allcouplings, allMEs, allmomenta, allrndcol, allrndhel, allselcol, allselhel, cGoodHel, cNGoodHel, npagV, allDenominators, allNumerators, channelId, mgOnGpu::icolamp )
 #endif // _OPENMP
-    for( int ipagV2 = 0; ipagV2 < npagV2; ++ipagV2 ) {
+    for( int ipagV = 0; ipagV < npagV; ++ipagV ) {
       // Running sum of partial amplitudes squared for event by event color selection (#402)
-      // (jamp2[1][1][neppV] for the SIMD vector of events processed in calculate_wavefunctions)
       fptype_sv jamp2_sv = { 0 };
       fptype_sv MEs_ighel[CPPProcess::ncomb] = { 0 };    // sum of MEs for all good helicities up to ighel (for the first - and/or only - neppV page)
-      const int ievt00 = ipagV2 * neppV; // loop on one SIMD page (neppV events) at a time
+      const int ievt0 = ipagV * neppV; // loop on one SIMD page (neppV events) at a time
       for( int ighel = 0; ighel < cNGoodHel; ighel++ ) {
         const int ihel = cGoodHel[ighel];
-        calculate_wavefunctions( ihel, allmomenta, allcouplings, allMEs, channelId, allNumerators, allDenominators, &jamp2_sv, ievt00 );
-        MEs_ighel[ighel] = *reinterpret_cast<fptype_v*>( &( allMEs[ievt00] ) );
+        calculate_wavefunctions( ihel, allmomenta, allcouplings, allMEs, channelId, allNumerators, allDenominators, &jamp2_sv, ievt0 );
+        MEs_ighel[ighel] = *reinterpret_cast<fptype_v*>( &( allMEs[ievt0] ) );
       }
       // Event-by-event random choice of helicity #403
       for( int ieppV = 0; ieppV < neppV; ++ieppV ) {
-        const int ievt = ievt00 + ieppV;
-        //printf( "sigmaKin: ievt=%4d rndhel=%f\n", ievt, allrndhel[ievt] );
+        const int ievt = ievt0 + ieppV;
         for( int ighel = 0; ighel < cNGoodHel; ighel++ ) {
           const bool okhel = allrndhel[ievt] < ( MEs_ighel[ighel][ieppV] / MEs_ighel[cNGoodHel - 1][ieppV] );
           if( okhel ) {
             const int ihelF = cGoodHel[ighel] + 1; // NB Fortran [1,ncomb], cudacpp [0,ncomb-1]
             allselhel[ievt] = ihelF;
-            //printf( "sigmaKin: ievt=%4d ihel=%4d\n", ievt, ihelF );
             break;
           }
         }
       }
       const int channelIdC = channelId - 1; // coloramps.h uses the C array indexing starting at 0
       // Event-by-event random choice of color #402
-      fptype_sv targetamp = fptype_sv{ 0 };
+      fptype_sv targetamp{ 0 };
       if( mgOnGpu::icolamp[channelIdC][0] ) targetamp += jamp2_sv;
       for( int ieppV = 0; ieppV < neppV; ++ieppV ) {
-        const int ievt = ievt00 + ieppV;
+        const int ievt = ievt0 + ieppV;
         const bool okcol = allrndcol[ievt] < ( targetamp[ieppV] / targetamp[ieppV] );
         if( okcol ) {
           allselcol[ievt] = 1; // NB Fortran [1,1], cudacpp [0,0]
@@ -386,16 +371,12 @@ namespace mg5amcCpu {
     // Get the final |M|^2 as an average over helicities/colors of the running sum of |M|^2 over helicities for the given event
     // [NB 'sum over final spins, average over initial spins', eg see
     // https://www.uzh.ch/cmsssl/physik/dam/jcr:2e24b7b1-f4d7-4160-817e-47b13dbf1d7c/Handout_4_2016-UZH.pdf]
-    for( int ipagV = 0; ipagV < npagV; ++ipagV ) {
-      const int ievt0 = ipagV * neppV;
-      fptype* MEs = &( allMEs[ievt0] );
-      fptype_sv& MEs_sv = *reinterpret_cast<fptype_v*>( &( MEs[0] ) );
+    for( int ievt0 = 0; ievt0 < nevt; ievt0 += neppV ) {
+      fptype_sv& MEs_sv = *reinterpret_cast<fptype_v*>( &( allMEs[ievt0] ) );
       MEs_sv /= 4;
       if( channelId > 0 ) {
-        fptype* numerators = &( allNumerators[ievt0] );
-        fptype* denominators = &( allDenominators[ievt0] );
-        fptype_sv& numerators_sv = *reinterpret_cast<fptype_v*>( &( numerators[0] ) );
-        fptype_sv& denominators_sv = *reinterpret_cast<fptype_v*>( &( denominators[0] ) );
+        fptype_sv& numerators_sv = *reinterpret_cast<fptype_v*>( &( allNumerators[ievt0] ) );
+        fptype_sv& denominators_sv = *reinterpret_cast<fptype_v*>( &( allDenominators[ievt0] ) );
         MEs_sv *= numerators_sv / denominators_sv;
       }
     }
