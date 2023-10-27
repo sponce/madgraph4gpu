@@ -70,16 +70,14 @@ TEST( XTESTID( MG_EPOCH_PROCESS_ID ), testxxx )
   constexpr bool testEvents = !dumpEvents; // run the test?
   constexpr fptype toleranceXXXs = std::is_same<fptype, double>::value ? 1.E-15 : 1.E-5;
   // Constant parameters
-  constexpr int neppM = MemoryAccessMomenta::neppM; // AOSOA layout
   constexpr int np4 = CPPProcess::np4;
   const int nevt = 32;         // 12 independent tests plus 20 duplicates (need a multiple of 16 for floats '512z')
-  assert( nevt % neppM == 0 ); // nevt must be a multiple of neppM
   assert( nevt % neppV == 0 ); // nevt must be a multiple of neppV
   // Fill in the input momenta
 #ifdef __CUDACC__
-  mg5amcGpu::PinnedHostBufferMomenta hstMomenta( nevt ); // AOSOA[npagM][npar=4][np4=4][neppM]
+  mg5amcGpu::PinnedHostBufferMomenta hstMomenta( nevt ); // AOSOA[npagM][npar=4][np4=4][neppV]
 #else
-  mg5amcCpu::HostBufferMomenta hstMomenta( nevt ); // AOSOA[npagM][npar=4][np4=4][neppM]
+  mg5amcCpu::HostBufferMomenta hstMomenta( nevt ); // AOSOA[npagM][npar=4][np4=4][neppV]
 #endif /* clang-format off */
   // NB NEW TESTS FOR DEBUGGING #701: KEEP TWO SEPARATE SETS (16-SIMD-VECTORS!) OF TESTS FOR M==0 AND M!=0!
   const fptype par0[np4 * nevt] = // AOS[nevt][np4]

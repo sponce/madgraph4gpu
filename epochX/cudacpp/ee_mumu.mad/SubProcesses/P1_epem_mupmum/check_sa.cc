@@ -209,7 +209,6 @@ main( int argc, char** argv )
 #endif
   }
 
-  constexpr int neppM = MemoryAccessMomenta::neppM;       // AOSOA layout
   constexpr int neppR = MemoryAccessRandomNumbers::neppR; // AOSOA layout
 
   using mgOnGpu::ntpbMAX;
@@ -665,8 +664,8 @@ main( int argc, char** argv )
               << "RanNumb memory layout       = AOSOA[" << neppR << "]"
               << ( neppR == 1 ? " == AOS" : "" )
               << " [HARDCODED FOR REPRODUCIBILITY]" << std::endl
-              << "Momenta memory layout       = AOSOA[" << neppM << "]"
-              << ( neppM == 1 ? " == AOS" : "" ) << std::endl
+              << "Momenta memory layout       = AOSOA[" << neppV << "]"
+              << ( neppV == 1 ? " == AOS" : "" ) << std::endl
 
 #if !defined MGONGPU_CPPSIMD
               << "Internal loops fptype_sv    = SCALAR ('none': ~vector[" << neppV
@@ -776,8 +775,8 @@ main( int argc, char** argv )
              << "\"AOSOA[" << neppR << "]\""
              << ( neppR == 1 ? " == AOS" : "" ) << ", " << std::endl
              << "\"Momenta memory layout\": "
-             << "\"AOSOA[" << neppM << "]\""
-             << ( neppM == 1 ? " == AOS" : "" ) << ", " << std::endl
+             << "\"AOSOA[" << neppV << "]\""
+             << ( neppV == 1 ? " == AOS" : "" ) << ", " << std::endl
              << "\"Curand generation\": "
              << "\"" << rndgentxt << "\"," << std::endl;
 

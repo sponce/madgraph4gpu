@@ -11,7 +11,7 @@
 #include "CPPProcess.h"           // for CPPProcess
 #include "CrossSectionKernels.h"  // for flagAbnormalMEs
 #include "MatrixElementKernels.h" // for MatrixElementKernelHost, MatrixElementKernelDevice
-#include "MemoryAccessMomenta.h"  // for MemoryAccessMomenta::neppM
+#include "MemoryAccessMomenta.h"  // for MemoryAccessMomenta::neppV
 #include "MemoryBuffers.h"        // for HostBufferMomenta, DeviceBufferMomenta etc
 
 #include <algorithm>
@@ -50,7 +50,7 @@ namespace mg5amcCpu
    *   DOUBLE PRECISION P_MULTI(0:3, NEXTERNAL, VECSIZE_USED)
    * where the dimensions are <np4F(#momenta)>, <nparF(#particles)>, <nevtF(#events)>.
    * In memory, this is stored in a way that C reads as an array P_MULTI[nevtF][nparF][np4F].
-   * The CUDA/C++ momenta are stored as an array[npagM][npar][np4][neppM] with nevt=npagM*neppM.
+   * The CUDA/C++ momenta are stored as an array[npagM][npar][np4][neppV] with nevt=npagM*neppV.
    * The Bridge is configured to store nevt==nevtF events in CUDA/C++.
    * It also checks that Fortran and C++ parameters match, nparF==npar and np4F==np4.
    *
@@ -288,8 +288,7 @@ namespace mg5amcCpu
                                             int* selcol,
                                             const bool goodHelOnly )
   {
-    constexpr int neppM = MemoryAccessMomenta::neppM;
-    if constexpr( neppM == 1 && std::is_same_v<FORTRANFPTYPE, fptype> )
+    if constexpr( neppV == 1 && std::is_same_v<FORTRANFPTYPE, fptype> )
     {
       checkCuda( cudaMemcpy( m_devMomentaC.data(), momenta, m_devMomentaC.bytes(), cudaMemcpyHostToDevice ) );
     }
@@ -393,7 +392,7 @@ namespace mg5amcCpu
   //
   // Implementations of transposition methods
   // - FORTRAN arrays: P_MULTI(0:3, NEXTERNAL, VECSIZE_USED) ==> p_multi[nevtF][nparF][np4F] in C++ (AOS)
-  // - C++ array: momenta[npagM][npar][np4][neppM] with nevt=npagM*neppM (AOSOA)
+  // - C++ array: momenta[npagM][npar][np4][neppV] with nevt=npagM*neppV (AOSOA)
   //
 
 #ifdef __CUDACC__
@@ -406,7 +405,7 @@ namespace mg5amcCpu
       // SR initial implementation
       constexpr int part = CPPProcess::npar;
       constexpr int mome = CPPProcess::np4;
-      constexpr int strd = MemoryAccessMomenta::neppM;
+      constexpr int strd = MemoryAccessMomenta::neppV;
       int pos = blockDim.x * blockIdx.x + threadIdx.x;
       int arrlen = nevt * part * mome;
       if( pos < arrlen )
@@ -429,18 +428,17 @@ namespace mg5amcCpu
     {
       // AV attempt another implementation with 1 event per thread: this seems slower...
       // F-style: AOS[nevtF][nparF][np4F]
-      // C-style: AOSOA[npagM][npar][np4][neppM] with nevt=npagM*neppM
+      // C-style: AOSOA[npagM][npar][np4][neppV] with nevt=npagM*neppV
       constexpr int npar = CPPProcess::npar;
       constexpr int np4 = CPPProcess::np4;
-      constexpr int neppM = MemoryAccessMomenta::neppM;
-      assert( nevt % neppM == 0 ); // number of events is not a multiple of neppM???
+      assert( nevt % neppV == 0 ); // number of events is not a multiple of neppV???
       int ievt = blockDim.x * blockIdx.x + threadIdx.x;
-      int ipagM = ievt / neppM;
-      int ieppM = ievt % neppM;
+      int ipagM = ievt / neppV;
+      int ieppM = ievt % neppV;
       for( int ip4 = 0; ip4 < np4; ip4++ )
         for( int ipar = 0; ipar < npar; ipar++ )
         {
-          int cpos = ipagM * npar * np4 * neppM + ipar * np4 * neppM + ip4 * neppM + ieppM;
+          int cpos = ipagM * npar * np4 * neppV + ipar * np4 * neppV + ip4 * neppV + ieppM;
           int fpos = ievt * npar * np4 + ipar * np4 + ip4;
           out[cpos] = in[fpos]; // F2C (Fortran to C)
         }
@@ -457,7 +455,7 @@ namespace mg5amcCpu
       // SR initial implementation
       constexpr unsigned int part = CPPProcess::npar;
       constexpr unsigned int mome = CPPProcess::np4;
-      constexpr unsigned int strd = MemoryAccessMomenta::neppM;
+      constexpr unsigned int strd = neppV;
       unsigned int arrlen = nevt * part * mome;
       for( unsigned int pos = 0; pos < arrlen; ++pos )
       {
@@ -481,27 +479,26 @@ namespace mg5amcCpu
     else
     {
       // AV attempt another implementation: this is slightly faster (better c++ pipelining?)
-      // [NB! this is not a transposition, it is an AOS to AOSOA conversion: if neppM=1, a memcpy is enough]
+      // [NB! this is not a transposition, it is an AOS to AOSOA conversion: if neppV=1, a memcpy is enough]
       // F-style: AOS[nevtF][nparF][np4F]
-      // C-style: AOSOA[npagM][npar][np4][neppM] with nevt=npagM*neppM
+      // C-style: AOSOA[npagM][npar][np4][neppV] with nevt=npagM*neppV
       constexpr unsigned int npar = CPPProcess::npar;
       constexpr unsigned int np4 = CPPProcess::np4;
-      constexpr unsigned int neppM = MemoryAccessMomenta::neppM;
-      if constexpr( neppM == 1 && std::is_same_v<Tin, Tout> )
+      if constexpr( neppV == 1 && std::is_same_v<Tin, Tout> )
       {
         memcpy( out, in, nevt * npar * np4 * sizeof( Tin ) );
       }
       else
       {
-        const unsigned int npagM = nevt / neppM;
-        assert( nevt % neppM == 0 ); // number of events is not a multiple of neppM???
+        const unsigned int npagM = nevt / neppV;
+        assert( nevt % neppV == 0 ); // number of events is not a multiple of neppV???
         for( unsigned int ipagM = 0; ipagM < npagM; ipagM++ )
           for( unsigned int ip4 = 0; ip4 < np4; ip4++ )
             for( unsigned int ipar = 0; ipar < npar; ipar++ )
-              for( unsigned int ieppM = 0; ieppM < neppM; ieppM++ )
+              for( unsigned int ieppM = 0; ieppM < neppV; ieppM++ )
               {
-                unsigned int ievt = ipagM * neppM + ieppM;
-                unsigned int cpos = ipagM * npar * np4 * neppM + ipar * np4 * neppM + ip4 * neppM + ieppM;
+                unsigned int ievt = ipagM * neppV + ieppM;
+                unsigned int cpos = ipagM * npar * np4 * neppV + ipar * np4 * neppV + ip4 * neppV + ieppM;
                 unsigned int fpos = ievt * npar * np4 + ipar * np4 + ip4;
                 if constexpr( F2C )
                   out[cpos] = in[fpos]; // F2C (Fortran to C)

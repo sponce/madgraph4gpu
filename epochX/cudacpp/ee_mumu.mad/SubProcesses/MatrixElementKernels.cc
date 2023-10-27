@@ -38,12 +38,11 @@ namespace mg5amcCpu
     if( this->nevt() != m_momenta.nevt() ) throw std::runtime_error( "MatrixElementKernelHost: nevt mismatch with momenta" );
     if( this->nevt() != m_matrixElements.nevt() ) throw std::runtime_error( "MatrixElementKernelHost: nevt mismatch with matrixElements" );
     // Sanity checks for memory access (momenta buffer)
-    constexpr int neppM = MemoryAccessMomenta::neppM; // AOSOA layout
-    static_assert( ispoweroftwo( neppM ), "neppM is not a power of 2" );
-    if( nevt % neppM != 0 )
+    static_assert( ispoweroftwo( neppV ), "neppV is not a power of 2" );
+    if( nevt % neppV != 0 )
     {
       std::ostringstream sstr;
-      sstr << "MatrixElementKernelHost: nevt should be a multiple of neppM=" << neppM;
+      sstr << "MatrixElementKernelHost: nevt should be a multiple of neppV=" << neppV;
       throw std::runtime_error( sstr.str() );
     }
     // Fail gently and avoid "Illegal instruction (core dumped)" if the host does not support the SIMD used in the ME calculation

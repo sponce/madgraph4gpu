@@ -37,12 +37,10 @@ namespace mg5amcCpu
     if( this->nevt() != m_momenta.nevt() ) throw std::runtime_error( "RamboSamplingKernelHost: nevt mismatch with momenta" );
     if( this->nevt() != m_weights.nevt() ) throw std::runtime_error( "RamboSamplingKernelHost: nevt mismatch with weights" );
     // Sanity checks for memory access (momenta buffer)
-    constexpr int neppM = MemoryAccessMomenta::neppM; // AOSOA layout
-    static_assert( ispoweroftwo( neppM ), "neppM is not a power of 2" );
-    if( nevt % neppM != 0 )
+    if( nevt % neppV != 0 )
     {
       std::ostringstream sstr;
-      sstr << "RamboSamplingKernelHost: nevt should be a multiple of neppM=" << neppM;
+      sstr << "RamboSamplingKernelHost: nevt should be a multiple of neppV=" << neppV;
       throw std::runtime_error( sstr.str() );
     }
     // Sanity checks for memory access (random number buffer)
@@ -113,12 +111,10 @@ namespace mg5amcCpu
     if( this->nevt() != m_momenta.nevt() ) throw std::runtime_error( "RamboSamplingKernelDevice: nevt mismatch with momenta" );
     if( this->nevt() != m_weights.nevt() ) throw std::runtime_error( "RamboSamplingKernelDevice: nevt mismatch with weights" );
     // Sanity checks for memory access (momenta buffer)
-    constexpr int neppM = MemoryAccessMomenta::neppM; // AOSOA layout
-    static_assert( ispoweroftwo( neppM ), "neppM is not a power of 2" );
-    if( m_gputhreads % neppM != 0 )
+    if( m_gputhreads % neppV != 0 )
     {
       std::ostringstream sstr;
-      sstr << "RamboSamplingKernelHost: gputhreads should be a multiple of neppM=" << neppM;
+      sstr << "RamboSamplingKernelHost: gputhreads should be a multiple of neppV=" << neppV;
       throw std::runtime_error( sstr.str() );
     }
     // Sanity checks for memory access (random number buffer)

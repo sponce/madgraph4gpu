@@ -11,7 +11,7 @@
 #include "mgOnGpuCxtypes.h"
 
 #include "MemoryAccessHelpers.h"
-#include "MemoryAccessMomenta.h" // for MemoryAccessMomentaBase::neppM
+#include "MemoryAccessMomenta.h" // for MemoryAccessMomentaBase::neppV
 #include "MemoryBuffers.h"       // for HostBufferCouplings::isaligned
 
 // NB: namespaces mg5amcGpu and mg5amcCpu includes types which are defined in different ways for CPU and GPU builds (see #318 and #725)
@@ -31,12 +31,6 @@ namespace mg5amcCpu
   {
   public:
 
-    // Number of Events Per Page in the coupling AOSOA memory buffer layout
-    static constexpr int neppC = MemoryAccessMomentaBase::neppM; // use the same AOSOA striding as for momenta
-
-    // SANITY CHECK: check that neppC is a power of two
-    static_assert( ispoweroftwo( neppC ), "neppC is not a power of 2" );
-
     //--------------------------------------------------------------------------
     // ** NB! A single super-buffer AOSOA[npagC][ndcoup][nx2][neppC] includes data for ndcoup different couplings  **
     // ** NB! The ieventAccessRecord and kernelAccess functions refer to the buffer for one individual coupling    **
@@ -48,13 +42,15 @@ namespace mg5amcCpu
     // NB: keep this in public even if exposed through KernelAccessCouplings: nvcc says it is inaccesible otherwise?
     static __host__ __device__ inline fptype*
     idcoupAccessBuffer( fptype* buffer, // input "super-buffer"
-                        const int idcoup )
-    {
-      constexpr int ipagC = 0;
-      constexpr int ieppC = 0;
-      constexpr int ix2 = 0;
-      // NB! this effectively adds an offset "idcoup * nx2 * neppC"
-      return &( buffer[ipagC * ndcoup * nx2 * neppC + idcoup * nx2 * neppC + ix2 * neppC + ieppC] ); // AOSOA[ipagC][idcoup][ix2][ieppC]
+                        const int idcoup ) {
+      // NB! this effectively adds an offset "idcoup * nx2 * neppV"
+      return &( buffer[idcoup * nx2 * neppV] ); // AOSOA[0][idcoup][0][0]
+    }
+    static __host__ __device__ inline fptype const*
+    idcoupAccessBuffer( fptype const* buffer, // input "super-buffer"
+                        const int idcoup ) {
+      // NB! this effectively adds an offset "idcoup * nx2 * neppV"
+      return &( buffer[idcoup * nx2 * neppV] ); // AOSOA[0][idcoup][0][0]
     }
 
     // Locate the buffer for a single coupling (output) in a memory super-buffer (input) from the given coupling index (input)
@@ -90,11 +86,11 @@ namespace mg5amcCpu
     ieventAccessRecord( fptype* buffer,
                         const int ievt )
     {
-      const int ipagC = ievt / neppC; // #event "C-page"
-      const int ieppC = ievt % neppC; // #event in the current event C-page
+      const int ipagC = ievt / neppV; // #event "C-page"
+      const int ieppC = ievt % neppV; // #event in the current event C-page
       constexpr int idcoup = 0;
       constexpr int ix2 = 0;
-      return &( buffer[ipagC * ndcoup * nx2 * neppC + idcoup * nx2 * neppC + ix2 * neppC + ieppC] ); // AOSOA[ipagC][idcoup][ix2][ieppC]
+      return &( buffer[ipagC * ndcoup * nx2 * neppV + idcoup * nx2 * neppV + ix2 * neppV + ieppC] ); // AOSOA[ipagC][idcoup][ix2][ieppC]
     }
 
     //--------------------------------------------------------------------------
@@ -108,9 +104,9 @@ namespace mg5amcCpu
     {
       constexpr int ipagC = 0;
       constexpr int ieppC = 0;
-      // NB! the offset "idcoup * nx2 * neppC" has been added in idcoupAccessBuffer
+      // NB! the offset "idcoup * nx2 * neppV" has been added in idcoupAccessBuffer
       constexpr int idcoup = 0;
-      return buffer[ipagC * ndcoup * nx2 * neppC + idcoup * nx2 * neppC + ix2 * neppC + ieppC]; // AOSOA[ipagC][idcoup][ix2][ieppC]
+      return buffer[ipagC * ndcoup * nx2 * neppV + idcoup * nx2 * neppV + ix2 * neppV + ieppC]; // AOSOA[ipagC][idcoup][ix2][ieppC]
     }
   };
 
@@ -160,7 +156,6 @@ namespace mg5amcCpu
   public:
 
     // Expose selected functions from MemoryAccessCouplingsBase
-    static constexpr auto idcoupAccessBuffer = MemoryAccessCouplingsBase::idcoupAccessBuffer;
     static constexpr auto idcoupAccessBufferConst = MemoryAccessCouplingsBase::idcoupAccessBufferConst;
 
     // Expose selected functions from MemoryAccessCouplings
@@ -187,9 +182,8 @@ namespace mg5amcCpu
       return out;
 #else
       // NB: derived from MemoryAccessMomenta, restricting the implementation to contiguous aligned arrays
-      constexpr int neppC = MemoryAccessCouplingsBase::neppC;
-      static_assert( neppC >= neppV );                              // ASSUME CONTIGUOUS ARRAYS
-      static_assert( neppC % neppV == 0 );                          // ASSUME CONTIGUOUS ARRAYS
+      static_assert( neppV >= neppV );                              // ASSUME CONTIGUOUS ARRAYS
+      static_assert( neppV % neppV == 0 );                          // ASSUME CONTIGUOUS ARRAYS
       static_assert( mg5amcCpu::HostBufferCouplings::isaligned() ); // ASSUME ALIGNED ARRAYS (reinterpret_cast will segfault otherwise!)
       //assert( (size_t)( buffer ) % mgOnGpu::cppAlign == 0 );      // ASSUME ALIGNED ARRAYS (reinterpret_cast will segfault otherwise!)
       return mg5amcCpu::fptypevFromAlignedArray( out ); // SIMD bulk load of neppV, use reinterpret_cast
@@ -217,9 +211,9 @@ namespace mg5amcCpu
       return out;
 #else
       // NB: derived from MemoryAccessMomenta, restricting the implementation to contiguous aligned arrays
-      constexpr int neppC = MemoryAccessCouplingsBase::neppC;
-      static_assert( neppC >= neppV ); // ASSUME CONTIGUOUS ARRAYS
-      static_assert( neppC % neppV == 0 ); // ASSUME CONTIGUOUS ARRAYS
+      constexpr int neppV = MemoryAccessCouplingsBase::neppV;
+      static_assert( neppV >= neppV ); // ASSUME CONTIGUOUS ARRAYS
+      static_assert( neppV % neppV == 0 ); // ASSUME CONTIGUOUS ARRAYS
       static_assert( mg5amcCpu::HostBufferCouplings::isaligned() ); // ASSUME ALIGNED ARRAYS (reinterpret_cast will segfault otherwise!)
       //assert( (size_t)( buffer ) % mgOnGpu::cppAlign == 0 ); // ASSUME ALIGNED ARRAYS (reinterpret_cast will segfault otherwise!)
       return mg5amcCpu::fptypevFromAlignedArray( out ); // SIMD bulk load of neppV, use reinterpret_cast

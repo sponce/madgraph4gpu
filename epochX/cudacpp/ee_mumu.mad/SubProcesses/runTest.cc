@@ -26,10 +26,8 @@ using namespace mg5amcCpu;
 
 struct CUDA_CPU_TestBase : public TestDriverBase
 {
-  static constexpr int neppM = MemoryAccessMomenta::neppM; // AOSOA layout
   static constexpr int np4 = CPPProcess::np4;
   static constexpr int npar = CPPProcess::npar;
-  static_assert( gputhreads % neppM == 0, "ERROR! #threads/block should be a multiple of neppM" );
   static_assert( gputhreads <= mgOnGpu::ntpbMAX, "ERROR! #threads/block should be <= ntpbMAX" );
   CUDA_CPU_TestBase( const std::string& refFileName )
     : TestDriverBase( npar, refFileName ) {}
