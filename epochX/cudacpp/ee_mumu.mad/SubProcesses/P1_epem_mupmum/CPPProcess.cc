@@ -17,7 +17,6 @@
 #include "mgOnGpuConfig.h"
 
 #include "CudaRuntime.h"
-#include "HelAmps_sm.h"
 #include "MemoryAccessAmplitudes.h"
 #include "MemoryAccessCouplings.h"
 #include "MemoryAccessCouplingsFixed.h"
@@ -36,10 +35,214 @@
 
 // Test ncu metrics for CUDA thread divergence
 #undef MGONGPU_TEST_DIVERGENCE
+#define ALWAYS_INLINE __attribute__( ( always_inline ) )
 
 //==========================================================================
 // Class member functions for calculating the matrix elements for
 // Process: e+ e- > mu+ mu- WEIGHTED<=4 @1
+namespace mg5amcCpu {
+
+  // Compute the output wavefunction fo[6] from the input momenta[npar*4*nevt]
+  // ASSUMPTIONS: (FMASS == 0) and (PX == PY == 0 and E == +PZ > 0)
+  inline void  ALWAYS_INLINE
+  myopzxxx( const fptype momenta[], // input: momenta
+          const int nhel,         // input: -1 or +1 (helicity of fermion)
+          const int nsf,          // input: +1 (particle) or -1 (antiparticle)
+          fptype wavefunctions[], // output: wavefunctions
+          const int ipar ) {      // input: particle# out of npar
+    const fptype_sv& pvec3 = KernelAccessMomenta<false>::kernelAccessIp4IparConst( momenta, 3, ipar );
+    cxtype_sv* fo =  reinterpret_cast<cxtype_sv*>( wavefunctions );
+    fo[0] = cxmake( pvec3 * (fptype)nsf, pvec3 * (fptype)nsf );
+    fo[1] = cxzero_sv();
+    const int nh = nhel * nsf;
+    const cxtype_sv csqp0p3 = cxmake( fpsqrt( 2. * pvec3 ) * (fptype)nsf, 0. );
+    fo[3] = cxzero_sv();
+    fo[4] = cxzero_sv();
+    if( nh == 1 ) {
+      fo[2] = csqp0p3;
+      fo[5] = cxzero_sv();
+    } else {
+      fo[2] = cxzero_sv();
+      fo[5] = csqp0p3;
+    }
+  }
+
+  inline void  ALWAYS_INLINE
+  myimzxxx( const fptype momenta[], // input: momenta
+          const int nhel,         // input: -1 or +1 (helicity of fermion)
+          const int nsf,          // input: +1 (particle) or -1 (antiparticle)
+          fptype wavefunctions[], // output: wavefunctions
+          const int ipar ) {       // input: particle# out of npar
+    const fptype_sv& pvec3 = KernelAccessMomenta<false>::kernelAccessIp4IparConst( momenta, 3, ipar );
+    cxtype_sv* fi = reinterpret_cast<cxtype_sv*>( wavefunctions );
+    fi[0] = cxmake( pvec3 * (fptype)nsf, -pvec3 * (fptype)nsf );
+    fi[1] = cxzero_sv();
+    const int nh = nhel * nsf;
+    const cxtype_sv chi = cxmake( -(fptype)nhel * fpsqrt( -2. * pvec3 ), 0. );
+    fi[3] = cxzero_sv();
+    fi[4] = cxzero_sv();
+    if( nh == 1 ) {
+      fi[2] = cxzero_sv();
+      fi[5] = chi;
+    } else {
+      fi[2] = chi;
+      fi[5] = cxzero_sv();
+    }
+  }
+
+  inline void ALWAYS_INLINE
+  myixzxxx( const fptype momenta[], // input: momenta
+          const int nhel,         // input: -1 or +1 (helicity of fermion)
+          const int nsf,          // input: +1 (particle) or -1 (antiparticle)
+          fptype wavefunctions[], // output: wavefunctions
+            const int ipar ) {       // input: particle# out of npar
+    const fptype_sv& pvec0 = KernelAccessMomenta<false>::kernelAccessIp4IparConst( momenta, 0, ipar );
+    const fptype_sv& pvec1 = KernelAccessMomenta<false>::kernelAccessIp4IparConst( momenta, 1, ipar );
+    const fptype_sv& pvec2 = KernelAccessMomenta<false>::kernelAccessIp4IparConst( momenta, 2, ipar );
+    const fptype_sv& pvec3 = KernelAccessMomenta<false>::kernelAccessIp4IparConst( momenta, 3, ipar );
+    cxtype_sv* fi = reinterpret_cast<cxtype_sv*>( wavefunctions );
+    fi[0] = cxmake( -pvec0 * (fptype)nsf, -pvec3 * (fptype)nsf ); // AV: BUG FIX
+    fi[1] = cxmake( -pvec1 * (fptype)nsf, -pvec2 * (fptype)nsf ); // AV: BUG FIX
+    const int nh = nhel * nsf;
+    const fptype_sv sqp0p3 = fpsqrt( pvec0 + pvec3 ) * (fptype)nsf;
+    const cxtype_sv chi0 = cxmake( sqp0p3, 0. );
+    const cxtype_sv chi1 = cxmake( (fptype)nh * pvec1 / sqp0p3, pvec2 / sqp0p3 );
+    if( nh == 1 ) {
+      fi[2] = cxzero_sv();
+      fi[3] = cxzero_sv();
+      fi[4] = chi0;
+      fi[5] = chi1;
+    } else {
+      fi[2] = chi1;
+      fi[3] = chi0;
+      fi[4] = cxzero_sv();
+      fi[5] = cxzero_sv();
+    }
+  }
+
+  inline void ALWAYS_INLINE
+  myoxzxxx( const fptype momenta[], // input: momenta
+          const int nhel,         // input: -1 or +1 (helicity of fermion)
+          const int nsf,          // input: +1 (particle) or -1 (antiparticle)
+          fptype wavefunctions[], // output: wavefunctions
+          const int ipar ) {      // input: particle# out of npar
+    const fptype_sv& pvec0 = KernelAccessMomenta<false>::kernelAccessIp4IparConst( momenta, 0, ipar );
+    const fptype_sv& pvec1 = KernelAccessMomenta<false>::kernelAccessIp4IparConst( momenta, 1, ipar );
+    const fptype_sv& pvec2 = KernelAccessMomenta<false>::kernelAccessIp4IparConst( momenta, 2, ipar );
+    const fptype_sv& pvec3 = KernelAccessMomenta<false>::kernelAccessIp4IparConst( momenta, 3, ipar );
+    cxtype_sv* fo = reinterpret_cast<cxtype_sv*>( wavefunctions );
+    fo[0] = cxmake( pvec0 * (fptype)nsf, pvec3 * (fptype)nsf );
+    fo[1] = cxmake( pvec1 * (fptype)nsf, pvec2 * (fptype)nsf );
+    const int nh = nhel * nsf;
+    const fptype_sv sqp0p3 = fpsqrt( pvec0 + pvec3 ) * (fptype)nsf;
+    const cxtype_sv chi0 = cxmake( sqp0p3, 0. );
+    const cxtype_sv chi1 = cxmake( (fptype)nh * pvec1 / sqp0p3, -pvec2 / sqp0p3 );
+    if( nh == 1 ) {
+      fo[2] = chi0;
+      fo[3] = chi1;
+      fo[4] = cxzero_sv();
+      fo[5] = cxzero_sv();
+    } else {
+      fo[2] = cxzero_sv();
+      fo[3] = cxzero_sv();
+      fo[4] = chi1;
+      fo[5] = chi0;
+    }
+  }
+
+  inline void ALWAYS_INLINE
+  myFFV1P0_3( const fptype allF1[],
+            const fptype allF2[],
+            const fptype allCOUP[],
+            const fptype M3,
+            const fptype W3,
+            fptype allV3[] ) {
+    const cxtype_sv* F1 = reinterpret_cast<const cxtype_sv*>( allF1 );
+    const cxtype_sv* F2 = reinterpret_cast<const cxtype_sv*>( allF2 );
+    const cxtype_sv COUP = HostAccessCouplingsFixed::kernelAccessConst( allCOUP );
+    cxtype_sv* V3 = HostAccessWavefunctions::kernelAccess( allV3 );
+    const cxtype cI = cxmake( 0., 1. );
+    V3[0] = +F1[0] + F2[0];
+    V3[1] = +F1[1] + F2[1];
+    const fptype_sv P3[4] = { -cxreal( V3[0] ), -cxreal( V3[1] ), -cximag( V3[1] ), -cximag( V3[0] ) };
+    const cxtype_sv denom = COUP / ( ( P3[0] * P3[0] ) - ( P3[1] * P3[1] ) - ( P3[2] * P3[2] ) - ( P3[3] * P3[3] ) - M3 * ( M3 - cI * W3 ) );
+    V3[2] = denom * ( -cI ) * ( F1[2] * F2[4] + F1[3] * F2[5] + F1[4] * F2[2] + F1[5] * F2[3] );
+    V3[3] = denom * ( -cI ) * ( -F1[2] * F2[5] - F1[3] * F2[4] + F1[4] * F2[3] + F1[5] * F2[2] );
+    V3[4] = denom * ( -cI ) * ( -cI * ( F1[2] * F2[5] + F1[5] * F2[2] ) + cI * ( F1[3] * F2[4] + F1[4] * F2[3] ) );
+    V3[5] = denom * ( -cI ) * ( -F1[2] * F2[4] - F1[5] * F2[3] + F1[3] * F2[5] + F1[4] * F2[2] );
+  }
+
+  inline void ALWAYS_INLINE
+  myFFV1_0( const fptype allF1[],
+          const fptype allF2[],
+          const fptype allV3[],
+          const fptype allCOUP[],
+          fptype allvertexes[] ) {
+    const cxtype_sv* F1 = reinterpret_cast<const cxtype_sv*>( allF1 );
+    const cxtype_sv* F2 = reinterpret_cast<const cxtype_sv*>( allF2 );
+    const cxtype_sv* V3 = reinterpret_cast<const cxtype_sv*>( allV3 );
+    const cxtype_sv COUP = HostAccessCouplingsFixed::kernelAccessConst( allCOUP );
+    cxtype_sv* vertex = HostAccessAmplitudes::kernelAccess( allvertexes );
+    const cxtype cI = cxmake( 0., 1. );
+    const cxtype_sv TMP0 = ( F1[2] * ( F2[4] * ( V3[2] + V3[5] ) + F2[5] * ( V3[3] + cI * V3[4] ) ) + ( F1[3] * ( F2[4] * ( V3[3] - cI * V3[4] ) + F2[5] * ( V3[2] - V3[5] ) ) + ( F1[4] * ( F2[2] * ( V3[2] - V3[5] ) - F2[3] * ( V3[3] + cI * V3[4] ) ) + F1[5] * ( F2[2] * ( -V3[3] + cI * V3[4] ) + F2[3] * ( V3[2] + V3[5] ) ) ) ) );
+    ( *vertex ) = COUP * -cI * TMP0;
+  }
+
+ 
+  // Compute the output amplitude 'vertex' from the input wavefunctions F1[6], F2[6], V3[6]
+  inline void ALWAYS_INLINE
+  myFFV2_4_0( const fptype allF1[],
+              const fptype allF2[],
+              const fptype allV3[],
+              const fptype allCOUP1[],
+              const fptype allCOUP2[],
+              fptype allvertexes[] ) {
+    const cxtype_sv* F1 = reinterpret_cast<const cxtype_sv*>( allF1 );
+    const cxtype_sv* F2 = reinterpret_cast<const cxtype_sv*>( allF2 );
+    const cxtype_sv* V3 = reinterpret_cast<const cxtype_sv*>( allV3 );
+    const cxtype_sv COUP1 = HostAccessCouplingsFixed::kernelAccessConst( allCOUP1 );
+    const cxtype_sv COUP2 = HostAccessCouplingsFixed::kernelAccessConst( allCOUP2 );
+    cxtype_sv* vertex = HostAccessAmplitudes::kernelAccess( allvertexes );
+    const cxtype cI = cxmake( 0., 1. );
+    constexpr fptype one( 1. );
+    constexpr fptype two( 2. );
+    const cxtype_sv TMP1 = ( F1[2] * ( F2[4] * ( V3[2] + V3[5] ) + F2[5] * ( V3[3] + cI * V3[4] ) ) + F1[3] * ( F2[4] * ( V3[3] - cI * V3[4] ) + F2[5] * ( V3[2] - V3[5] ) ) );
+    const cxtype_sv TMP3 = ( F1[4] * ( F2[2] * ( V3[2] - V3[5] ) - F2[3] * ( V3[3] + cI * V3[4] ) ) + F1[5] * ( F2[2] * ( -V3[3] + cI * V3[4] ) + F2[3] * ( V3[2] + V3[5] ) ) );
+    ( *vertex ) = ( -one ) * ( COUP2 * ( +cI * TMP1 + ( two * cI ) * TMP3 ) + cI * ( TMP1 * COUP1 ) );
+  }
+
+  // Compute the output wavefunction 'V3[6]' from the input wavefunctions F1[6], F2[6]
+  inline void ALWAYS_INLINE
+  myFFV2_4_3( const fptype allF1[],
+              const fptype allF2[],
+              const fptype allCOUP1[],
+              const fptype allCOUP2[],
+              const fptype M3,
+              const fptype W3,
+              fptype allV3[] ) {
+    const cxtype_sv* F1 = reinterpret_cast<const cxtype_sv*>( allF1 );
+    const cxtype_sv* F2 = reinterpret_cast<const cxtype_sv*>( allF2 );
+    const cxtype_sv COUP1 = HostAccessCouplingsFixed::kernelAccessConst( allCOUP1 );
+    const cxtype_sv COUP2 = HostAccessCouplingsFixed::kernelAccessConst( allCOUP2 );
+    cxtype_sv* V3 = HostAccessWavefunctions::kernelAccess( allV3 );
+    const cxtype cI = cxmake( 0., 1. );
+    const fptype OM3 = ( M3 != 0. ? 1. / ( M3 * M3 ) : 0. );
+    V3[0] = +F1[0] + F2[0];
+    V3[1] = +F1[1] + F2[1];
+    const fptype_sv P3[4] = { -cxreal( V3[0] ), -cxreal( V3[1] ), -cximag( V3[1] ), -cximag( V3[0] ) };
+    constexpr fptype one( 1. );
+    constexpr fptype two( 2. );
+    constexpr fptype half( 1. / 2. );
+    const cxtype_sv TMP2 = ( F1[2] * ( F2[4] * ( P3[0] + P3[3] ) + F2[5] * ( P3[1] + cI * P3[2] ) ) + F1[3] * ( F2[4] * ( P3[1] - cI * P3[2] ) + F2[5] * ( P3[0] - P3[3] ) ) );
+    const cxtype_sv TMP4 = ( F1[4] * ( F2[2] * ( P3[0] - P3[3] ) - F2[3] * ( P3[1] + cI * P3[2] ) ) + F1[5] * ( F2[2] * ( -P3[1] + cI * P3[2] ) + F2[3] * ( P3[0] + P3[3] ) ) );
+    const cxtype_sv denom = one / ( ( P3[0] * P3[0] ) - ( P3[1] * P3[1] ) - ( P3[2] * P3[2] ) - ( P3[3] * P3[3] ) - M3 * ( M3 - cI * W3 ) );
+    V3[2] = denom * ( -two * cI ) * ( COUP2 * ( OM3 * -half * P3[0] * ( TMP2 + two * TMP4 ) + ( +half * ( F1[2] * F2[4] + F1[3] * F2[5] ) + F1[4] * F2[2] + F1[5] * F2[3] ) ) + half * ( COUP1 * ( F1[2] * F2[4] + F1[3] * F2[5] - P3[0] * OM3 * TMP2 ) ) );
+    V3[3] = denom * ( -two * cI ) * ( COUP2 * ( OM3 * -half * P3[1] * ( TMP2 + two * TMP4 ) + ( -half * ( F1[2] * F2[5] + F1[3] * F2[4] ) + F1[4] * F2[3] + F1[5] * F2[2] ) ) - half * ( COUP1 * ( F1[2] * F2[5] + F1[3] * F2[4] + P3[1] * OM3 * TMP2 ) ) );
+    V3[4] = denom * cI * ( COUP2 * ( OM3 * P3[2] * ( TMP2 + two * TMP4 ) + ( +cI * ( F1[2] * F2[5] ) - cI * ( F1[3] * F2[4] ) + ( -two * cI ) * ( F1[4] * F2[3] ) + ( two * cI ) * ( F1[5] * F2[2] ) ) ) + COUP1 * ( +cI * ( F1[2] * F2[5] ) - cI * ( F1[3] * F2[4] ) + P3[2] * OM3 * TMP2 ) );
+    V3[5] = denom * ( two * cI ) * ( COUP2 * ( OM3 * half * P3[3] * ( TMP2 + two * TMP4 ) + ( +half * ( F1[2] * F2[4] ) - half * ( F1[3] * F2[5] ) - F1[4] * F2[2] + F1[5] * F2[3] ) ) + half * ( COUP1 * ( F1[2] * F2[4] + P3[3] * OM3 * TMP2 - F1[3] * F2[5] ) ) );
+  }
+
+}
 
 namespace mg5amcCpu {
   using Parameters_sm_dependentCouplings::ndcoup;   // #couplings that vary event by event (depend on running alphas QCD)
@@ -58,7 +261,7 @@ namespace mg5amcCpu {
   // NB: calculate_wavefunctions ADDS |M|^2 for a given ihel to the running sum of |M|^2 over helicities for the given event(s)
   // (similarly, it also ADDS the numerator and denominator for a given ihel to their running sums over helicities)
   // In C++, this function computes the ME for a single event "page" or SIMD vector
-  __device__ INLINE void /* clang-format off */
+  inline void /* clang-format off */
   calculate_wavefunctions( int ihel,
                            const fptype* allmomenta,      // input: momenta[nevt*npar*4]
                            const fptype* allcouplings,    // input: couplings[nevt*ndcoup*2]
@@ -104,11 +307,11 @@ namespace mg5amcCpu {
     const fptype* allCOUPs[nxcoup];
     for( size_t idcoup = 0; idcoup < ndcoup; idcoup++ ) {
       // dependent couplings, vary event-by-event
-      allCOUPs[idcoup] = MemoryAccessCouplingsBase::idcoupAccessBuffer( allcouplings, idcoup );
+      allCOUPs[idcoup] = &( allcouplings[idcoup * mgOnGpu::nx2 * neppV] );
     }
     for( size_t iicoup = 0; iicoup < nicoup; iicoup++ ) {
       // independent couplings, fixed for all events
-      allCOUPs[ndcoup + iicoup] = HostAccessCouplingsFixed::iicoupAccessBufferConst( cIPC, iicoup );
+      allCOUPs[ndcoup + iicoup] = &( cIPC[iicoup * mgOnGpu::nx2] );
     }
     // C++ kernels take input/output buffers with momenta/MEs for one specific event
     // (the first in the current event page)
@@ -116,7 +319,7 @@ namespace mg5amcCpu {
     const fptype* COUPs[nxcoup];
     for( size_t idcoup = 0; idcoup < ndcoup; idcoup++ ) {
        // dependent couplings, vary event-by-event
-      COUPs[idcoup] = KernelAccessCouplings<false>::ieventAccessRecordConst( allCOUPs[idcoup], ievt0 );
+      COUPs[idcoup] = &( allCOUPs[idcoup][ievt0 * ndcoup * mgOnGpu::nx2 ] );
     }
     for( size_t iicoup = 0; iicoup < nicoup; iicoup++ ) {
       COUPs[ndcoup + iicoup] = allCOUPs[ndcoup + iicoup]; // independent couplings, fixed for all events
@@ -133,14 +336,14 @@ namespace mg5amcCpu {
     // *** DIAGRAM 1 OF 2 ***
 
     // Wavefunction(s) for diagram number 1
-    opzxxx<KernelAccessMomenta<false>, HostAccessWavefunctions>( momenta, cHel[ihel][0], -1, w_fp[0], 0 ); // NB: opzxxx only uses pz
-    imzxxx<KernelAccessMomenta<false>, HostAccessWavefunctions>( momenta, cHel[ihel][1], +1, w_fp[1], 1 ); // NB: imzxxx only uses pz
-    ixzxxx<KernelAccessMomenta<false>, HostAccessWavefunctions>( momenta, cHel[ihel][2], -1, w_fp[2], 2 );
-    oxzxxx<KernelAccessMomenta<false>, HostAccessWavefunctions>( momenta, cHel[ihel][3], +1, w_fp[3], 3 );
-    FFV1P0_3<HostAccessWavefunctions, HostAccessCouplingsFixed>( w_fp[1], w_fp[0], COUPs[0], 0., 0., w_fp[4] );
+    myopzxxx( momenta, cHel[ihel][0], -1, w_fp[0], 0 ); // NB: opzxxx only uses pz
+    myimzxxx( momenta, cHel[ihel][1], +1, w_fp[1], 1 ); // NB: imzxxx only uses pz
+    myixzxxx( momenta, cHel[ihel][2], -1, w_fp[2], 2 );
+    myoxzxxx( momenta, cHel[ihel][3], +1, w_fp[3], 3 );
+    myFFV1P0_3( w_fp[1], w_fp[0], COUPs[0], 0., 0., w_fp[4] );
 
     // Amplitude(s) for diagram number 1
-    FFV1_0<HostAccessWavefunctions, HostAccessAmplitudes, HostAccessCouplingsFixed>( w_fp[2], w_fp[3], w_fp[4], COUPs[0], &amp_fp[0] );
+    myFFV1_0( w_fp[2], w_fp[3], w_fp[4], COUPs[0], &amp_fp[0] );
     if( channelId == 1 ) numerators_sv += cxabs2( amp_sv[0] );
     if( channelId != 0 ) denominators_sv += cxabs2( amp_sv[0] );
     jamp_sv -= amp_sv[0];
@@ -148,9 +351,9 @@ namespace mg5amcCpu {
     // *** DIAGRAM 2 OF 2 ***
 
     // Wavefunction(s) for diagram number 2
-    FFV2_4_3<HostAccessWavefunctions, HostAccessCouplingsFixed>( w_fp[1], w_fp[0], COUPs[1], COUPs[2], cIPD[0], cIPD[1], w_fp[4] );
+    myFFV2_4_3( w_fp[1], w_fp[0], COUPs[1], COUPs[2], cIPD[0], cIPD[1], w_fp[4] );
     // Amplitude(s) for diagram number 2
-    FFV2_4_0<HostAccessWavefunctions, HostAccessAmplitudes, HostAccessCouplingsFixed>( w_fp[2], w_fp[3], w_fp[4], COUPs[1], COUPs[2], &amp_fp[0] );
+    myFFV2_4_0( w_fp[2], w_fp[3], w_fp[4], COUPs[1], COUPs[2], &amp_fp[0] );
     if( channelId == 2 ) numerators_sv += cxabs2( amp_sv[0] );
     if( channelId != 0 ) denominators_sv += cxabs2( amp_sv[0] );
     jamp_sv -= amp_sv[0];
@@ -248,7 +451,7 @@ namespace mg5amcCpu {
     using namespace mg5amcCpu;
     for( int ievt0 = 0; ievt0 < nevt; ievt0 += neppV ) {
       const fptype* gs = &( allgs[ievt0] );
-      fptype* couplings = MemoryAccessCouplings::ieventAccessRecord( allcouplings, ievt0 );
+      fptype* couplings = &( allcouplings[ievt0 * ndcoup * mgOnGpu::nx2] );
       G2COUP<HostAccessGs, KernelAccessCouplings<false>>( gs, couplings );
     }
   }

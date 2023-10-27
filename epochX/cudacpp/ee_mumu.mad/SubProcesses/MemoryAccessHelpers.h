@@ -103,13 +103,7 @@ public:
     }
     else
     {
-#ifdef __CUDACC__
-      const int ievt = blockDim.x * blockIdx.x + threadIdx.x; // index of event (thread) in grid
-      //printf( "kernelAccessRecord: ievt=%d threadId=%d\n", ievt, threadIdx.x );
-      return T::ieventAccessRecord( buffer, ievt ); // NB fptype and fptype_sv coincide for CUDA
-#else
       throw std::runtime_error( "kernelAccessRecord on device is only implemented in CUDA" );
-#endif
     }
   }
 

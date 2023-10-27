@@ -36,9 +36,8 @@ namespace mg5amcCpu
     iicoupAccessBufferConst( const fptype* buffer, // input "super-buffer": in practice, the cIPC global array
                              const int iicoup )
     {
-      constexpr int ix2 = 0;
       // NB! this effectively adds an offset "iicoup * nx2"
-      return &( buffer[iicoup * nx2 + ix2] ); // STRUCT[idcoup][ix2]
+      return &( buffer[iicoup * nx2] ); // STRUCT[idcoup][ix2]
     }
 
   private:
@@ -65,7 +64,6 @@ namespace mg5amcCpu
     kernelAccessConst( const fptype* buffer )
     {
       // TRIVIAL ACCESS to fixed-couplings buffers!
-      //return cxmake( fptype_sv{ buffer[0] }, fptype_sv{ buffer[1] } ); // NO! BUG #339!
       const fptype_sv r_sv = fptype_sv{ 0 } + buffer[0];
       const fptype_sv i_sv = fptype_sv{ 0 } + buffer[1];
       return cxmake( r_sv, i_sv ); // ugly but effective

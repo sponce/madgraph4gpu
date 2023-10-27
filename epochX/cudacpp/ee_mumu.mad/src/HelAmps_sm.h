@@ -23,10 +23,6 @@
 #include "Parameters_sm.h"
 
 #include <cassert>
-//#include <cmath>
-//#include <cstdlib>
-//#include <iomanip>
-//#include <iostream>
 
 #ifdef __CUDACC__
 namespace mg5amcGpu
@@ -746,9 +742,7 @@ namespace mg5amcCpu
           const int nhel,         // input: -1 or +1 (helicity of fermion)
           const int nsf,          // input: +1 (particle) or -1 (antiparticle)
           fptype wavefunctions[], // output: wavefunctions
-          const int ipar )        // input: particle# out of npar
-  {
-    mgDebug( 0, __FUNCTION__ );
+          const int ipar ) {      // input: particle# out of npar
     const fptype_sv& pvec3 = M_ACCESS::kernelAccessIp4IparConst( momenta, 3, ipar );
     cxtype_sv* fo = W_ACCESS::kernelAccess( wavefunctions );
     fo[0] = cxmake( pvec3 * (fptype)nsf, pvec3 * (fptype)nsf );
@@ -757,18 +751,13 @@ namespace mg5amcCpu
     const cxtype_sv csqp0p3 = cxmake( fpsqrt( 2. * pvec3 ) * (fptype)nsf, 0. );
     fo[3] = cxzero_sv();
     fo[4] = cxzero_sv();
-    if( nh == 1 )
-    {
+    if( nh == 1 ) {
       fo[2] = csqp0p3;
       fo[5] = cxzero_sv();
-    }
-    else
-    {
+    } else {
       fo[2] = cxzero_sv();
       fo[5] = csqp0p3;
     }
-    mgDebug( 1, __FUNCTION__ );
-    return;
   }
 
   //--------------------------------------------------------------------------

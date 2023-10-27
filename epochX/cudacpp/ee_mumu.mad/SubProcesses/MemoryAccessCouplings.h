@@ -15,14 +15,7 @@
 #include "MemoryBuffers.h"       // for HostBufferCouplings::isaligned
 
 // NB: namespaces mg5amcGpu and mg5amcCpu includes types which are defined in different ways for CPU and GPU builds (see #318 and #725)
-#ifdef __CUDACC__
-namespace mg5amcGpu
-#else
-namespace mg5amcCpu
-#endif
-{
-  //----------------------------------------------------------------------------
-
+namespace mg5amcCpu {
   // A class describing the internal layout of memory buffers for couplings
   // This implementation uses an AOSOA[npagC][ndcoup][nx2][neppC] "super-buffer" where nevt=npagC*neppC
   // From the "super-buffer" for ndcoup different couplings, use idcoupAccessBuffer to access the buffer for one specific coupling
@@ -88,9 +81,7 @@ namespace mg5amcCpu
     {
       const int ipagC = ievt / neppV; // #event "C-page"
       const int ieppC = ievt % neppV; // #event in the current event C-page
-      constexpr int idcoup = 0;
-      constexpr int ix2 = 0;
-      return &( buffer[ipagC * ndcoup * nx2 * neppV + idcoup * nx2 * neppV + ix2 * neppV + ieppC] ); // AOSOA[ipagC][idcoup][ix2][ieppC]
+      return &( buffer[ipagC * ndcoup * nx2 * neppV + ieppC] ); // AOSOA[ipagC][idcoup][ix2][ieppC]
     }
 
     //--------------------------------------------------------------------------

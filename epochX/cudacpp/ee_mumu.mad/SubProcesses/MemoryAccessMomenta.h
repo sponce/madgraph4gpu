@@ -92,22 +92,6 @@ namespace mg5amcCpu {
     // DEFAULT VERSION
     static constexpr auto ieventAccessIp4IparConst =
       MemoryAccessHelper<MemoryAccessMomentaBase>::template ieventAccessFieldConst<int, int>;
-
-    /*
-    // Locate a field (output) in a memory buffer (input) from the given event number (input) and the given field indexes (input)
-    // [Signature (const) ===> const fptype& ieventAccessIp4IparConst( const fptype* buffer, const ievt, const int ipar, const int ipar ) <===]
-    // DEBUG VERSION WITH PRINTOUTS
-    static __host__ __device__ inline const fptype&
-    ieventAccessIp4IparConst( const fptype* buffer,
-                                            const int ievt,
-                                            const int ip4,
-                                            const int ipar )
-    {
-      const fptype& out = MemoryAccessHelper<MemoryAccessMomentaBase>::template ieventAccessFieldConst<int, int>( buffer, ievt, ip4, ipar );
-      printf( "ipar=%2d ip4=%2d ievt=%8d out=%8.3f\n", ipar, ip4, ievt, out );
-      return out;
-    }
-    */
   };
 
   //----------------------------------------------------------------------------
@@ -133,21 +117,6 @@ namespace mg5amcCpu {
     static constexpr auto kernelAccessIp4IparConst_s =
       KernelAccessHelper<MemoryAccessMomentaBase, onDevice>::template kernelAccessFieldConst<int, int>;
 
-    /*
-    // Locate a field (output) in a memory buffer (input) from a kernel event-indexing mechanism (internal) and the given field indexes (input)
-    // [Signature (const, SCALAR) ===> const fptype& kernelAccessIp4IparConst( const fptype* buffer, const int ipar, const int ipar ) <===]
-    // DEBUG VERSION WITH PRINTOUTS
-    static __host__ __device__ inline const fptype&
-    kernelAccessIp4IparConst_s( const fptype* buffer,
-                                const int ip4,
-                                const int ipar )
-    {
-      const fptype& out = KernelAccessHelper<MemoryAccessMomentaBase, onDevice>::template kernelAccessFieldConst<int, int>( buffer, ip4, ipar );
-      printf( "ipar=%2d ip4=%2d ievt='kernel' out=%8.3f\n", ipar, ip4, out );
-      return out;
-    }
-    */
-
     // Locate a field (output) in a memory buffer (input) from a kernel event-indexing mechanism (internal) and the given field indexes (input)
     // [Signature (const, SCALAR OR VECTOR) ===> fptype_sv kernelAccessIp4IparConst( const fptype* buffer, const int ipar, const int ipar ) <===]
     // FIXME? Eventually return by const reference and support aligned arrays only?
@@ -162,37 +131,23 @@ namespace mg5amcCpu {
       return out;
 #else
       constexpr bool useContiguousEventsIfPossible = true; // DEFAULT
-      //constexpr bool useContiguousEventsIfPossible = false; // FOR PERFORMANCE TESTS (treat as arbitrary array even if it is an AOSOA)
       // Use c++17 "if constexpr": compile-time branching
-      if constexpr( useContiguousEventsIfPossible && ( neppV >= neppV ) && ( neppV % neppV == 0 ) )
-      {
-        //constexpr bool skipAlignmentCheck = true; // FASTEST (SEGFAULTS IF MISALIGNED ACCESS, NEEDS A SANITY CHECK ELSEWHERE!)
+      if constexpr( useContiguousEventsIfPossible && ( neppV >= neppV ) && ( neppV % neppV == 0 ) ) {
         constexpr bool skipAlignmentCheck = false; // DEFAULT: A BIT SLOWER BUT SAFER [ALLOWS MISALIGNED ACCESS]
-        if constexpr( skipAlignmentCheck )
-        {
-          //static bool first=true; if( first ){ std::cout << "WARNING! assume aligned AOSOA, skip check" << std::endl; first=false; } // SLOWER (5.06E6)
+        if constexpr( skipAlignmentCheck ) {
           // FASTEST? (5.09E6 in eemumu 512y)
           // This assumes alignment for momenta1d without checking - causes segmentation fault in reinterpret_cast if not aligned!
           return mg5amcCpu::fptypevFromAlignedArray( out ); // use reinterpret_cast
-        }
-        else if( (size_t)( buffer ) % mgOnGpu::cppAlign == 0 )
-        {
-          //static bool first=true; if( first ){ std::cout << "WARNING! aligned AOSOA, reinterpret cast" << std::endl; first=false; } // SLOWER (5.00E6)
+        } else if( (size_t)( buffer ) % mgOnGpu::cppAlign == 0 ) {
           // DEFAULT! A tiny bit (<1%) slower because of the alignment check (5.07E6 in eemumu 512y)
           // This explicitly checks buffer alignment to avoid segmentation faults in reinterpret_cast
           return mg5amcCpu::fptypevFromAlignedArray( out ); // SIMD bulk load of neppV, use reinterpret_cast
-        }
-        else
-        {
-          //static bool first=true; if( first ){ std::cout << "WARNING! AOSOA but no reinterpret cast" << std::endl; first=false; } // SLOWER (4.93E6)
+        } else {
           // A bit (1%) slower (5.05E6 in eemumu 512y)
           // This does not require buffer alignment, but it requires AOSOA with neppV>=neppV and neppV%neppV==0
           return mg5amcCpu::fptypevFromUnalignedArray( out ); // SIMD bulk load of neppV, do not use reinterpret_cast (fewer SIMD operations)
         }
-      }
-      else
-      {
-        //static bool first=true; if( first ){ std::cout << "WARNING! arbitrary array" << std::endl; first=false; } // SLOWER (5.08E6)
+      } else {
         // ?!Used to be much slower, now a tiny bit faster for AOSOA?! (5.11E6 for AOSOA, 4.64E6 for AOS in eemumu 512y)
         // This does not even require AOSOA with neppV>=neppV and neppV%neppV==0 (e.g. can be used with AOS neppV==1)
         constexpr int ievt0 = 0; // just make it explicit in the code that buffer refers to a given ievt0 and decoderIeppV fetches event ievt0+ieppV
