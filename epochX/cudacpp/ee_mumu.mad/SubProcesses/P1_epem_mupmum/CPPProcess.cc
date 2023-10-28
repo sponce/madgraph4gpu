@@ -16,14 +16,8 @@
 
 #include "mgOnGpuConfig.h"
 
-#include "CudaRuntime.h"
-#include "MemoryAccessAmplitudes.h"
-#include "MemoryAccessCouplings.h"
-#include "MemoryAccessCouplingsFixed.h"
 #include "MemoryAccessGs.h"
-#include "MemoryAccessMatrixElements.h"
 #include "MemoryAccessMomenta.h"
-#include "MemoryAccessWavefunctions.h"
 
 #include "coloramps.h"
 
@@ -129,7 +123,7 @@ namespace mg5amcCpu {
               const fptype M3,
               const fptype W3,
               cxtype_sv V3[] ) {
-    const cxtype_sv COUP = HostAccessCouplingsFixed::kernelAccessConst( allCOUP );
+    const cxtype_sv COUP = cxtype_sv{ fptype_v{allCOUP[0]}, fptype_v{allCOUP[1]} };
     const cxtype cI = { 0., 1. };
     V3[0] = +F1[0] + F2[0];
     V3[1] = +F1[1] + F2[1];
@@ -148,8 +142,8 @@ namespace mg5amcCpu {
             const fptype allCOUP[],
             fptype allvertexes[] ) {
     const cxtype_sv* V3 = allV3;
-    const cxtype_sv COUP = HostAccessCouplingsFixed::kernelAccessConst( allCOUP );
-    cxtype_sv* vertex = HostAccessAmplitudes::kernelAccess( allvertexes );
+    const cxtype_sv COUP = cxtype_sv{ fptype_v{allCOUP[0]}, fptype_v{allCOUP[1]} };
+    cxtype_sv* vertex = reinterpret_cast<cxtype_sv*>( allvertexes );
     const cxtype cI = { 0., 1. };
     const cxtype_sv TMP0 = ( F1[2] * ( F2[4] * ( V3[2] + V3[5] ) + F2[5] * ( V3[3] + cI * V3[4] ) ) + ( F1[3] * ( F2[4] * ( V3[3] - cI * V3[4] ) + F2[5] * ( V3[2] - V3[5] ) ) + ( F1[4] * ( F2[2] * ( V3[2] - V3[5] ) - F2[3] * ( V3[3] + cI * V3[4] ) ) + F1[5] * ( F2[2] * ( -V3[3] + cI * V3[4] ) + F2[3] * ( V3[2] + V3[5] ) ) ) ) );
     ( *vertex ) = COUP * -cI * TMP0;
@@ -164,9 +158,9 @@ namespace mg5amcCpu {
               const fptype allCOUP1[],
               const fptype allCOUP2[],
               fptype allvertexes[] ) {
-    const cxtype_sv COUP1 = HostAccessCouplingsFixed::kernelAccessConst( allCOUP1 );
-    const cxtype_sv COUP2 = HostAccessCouplingsFixed::kernelAccessConst( allCOUP2 );
-    cxtype_sv* vertex = HostAccessAmplitudes::kernelAccess( allvertexes );
+    const cxtype_sv COUP1 = cxtype_sv{ fptype_v{allCOUP1[0]}, fptype_v{allCOUP1[1]} };
+    const cxtype_sv COUP2 = cxtype_sv{ fptype_v{allCOUP2[0]}, fptype_v{allCOUP2[1]} };
+    cxtype_sv* vertex = reinterpret_cast<cxtype_sv*>( allvertexes );
     const cxtype cI = { 0., 1. };
     constexpr fptype one( 1. );
     constexpr fptype two( 2. );
@@ -184,8 +178,8 @@ namespace mg5amcCpu {
               const fptype M3,
               const fptype W3,
               cxtype_sv V3[] ) {
-    const cxtype_sv COUP1 = HostAccessCouplingsFixed::kernelAccessConst( allCOUP1 );
-    const cxtype_sv COUP2 = HostAccessCouplingsFixed::kernelAccessConst( allCOUP2 );
+    const cxtype_sv COUP1 = cxtype_sv{ fptype_v{allCOUP1[0]}, fptype_v{allCOUP1[1]} };
+    const cxtype_sv COUP2 = cxtype_sv{ fptype_v{allCOUP2[0]}, fptype_v{allCOUP2[1]} };
     const cxtype cI = { 0., 1. };
     const fptype OM3 = ( M3 != 0. ? 1. / ( M3 * M3 ) : 0. );
     V3[0] = +F1[0] + F2[0];
@@ -410,7 +404,7 @@ namespace mg5amcCpu {
     for( int ievt0 = 0; ievt0 < nevt; ievt0 += neppV ) {
       const fptype* gs = &( allgs[ievt0] );
       fptype* couplings = &( allcouplings[ievt0 * ndcoup * mgOnGpu::nx2] );
-      G2COUP<HostAccessGs, KernelAccessCouplings<false>>( gs, couplings );
+      G2COUP<HostAccessGs, int>( gs, couplings );
     }
   }
 

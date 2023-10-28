@@ -61,12 +61,8 @@ namespace mg5amcCpu
     // Locate a field (output) in a memory buffer (input) from a kernel event-indexing mechanism (internal) and the given field indexes (input)
     // [Signature (const, SCALAR OR VECTOR) ===> cxtype_sv kernelAccessConst( const fptype* buffer ) <===]
     static __host__ __device__ inline const cxtype_sv
-    kernelAccessConst( const fptype* buffer )
-    {
-      // TRIVIAL ACCESS to fixed-couplings buffers!
-      const fptype_sv r_sv = fptype_sv{ 0 } + buffer[0];
-      const fptype_sv i_sv = fptype_sv{ 0 } + buffer[1];
-      return cxmake( r_sv, i_sv ); // ugly but effective
+    kernelAccessConst( const fptype* buffer ) {
+      return cxtype_sv{ fptype_v{buffer[0]}, fptype_v{buffer[1]} }; // ugly but effective
     }
   };
 

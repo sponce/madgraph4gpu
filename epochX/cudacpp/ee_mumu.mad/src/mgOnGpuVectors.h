@@ -74,7 +74,7 @@ namespace mg5amcCpu
       : m_real{ 0 }, m_imag{ 0 } {} // RRRR=0000 IIII=0000
     cxtype_v( const cxtype_v& ) = default;
     cxtype_v( cxtype_v&& ) = default;
-    cxtype_v( const fptype_v& r, const fptype_v& i )
+    cxtype_v( const fptype_v r, const fptype_v i )
       : m_real( r ), m_imag( i ) {}
     cxtype_v( const fptype_v& r )
       : m_real( r ), m_imag{ 0 } {} // IIII=0000
