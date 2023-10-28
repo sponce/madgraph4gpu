@@ -16,9 +16,6 @@
 
 #include "mgOnGpuConfig.h"
 
-#include "MemoryAccessGs.h"
-#include "MemoryAccessMomenta.h"
-
 #include "coloramps.h"
 
 #include <algorithm>
@@ -26,6 +23,7 @@
 #include <cstring>
 #include <iostream>
 #include <memory>
+#include <cassert>
 
 // Test ncu metrics for CUDA thread divergence
 #undef MGONGPU_TEST_DIVERGENCE
@@ -36,13 +34,19 @@
 // Process: e+ e- > mu+ mu- WEIGHTED<=4 @1
 namespace mg5amcCpu {
 
+  template<int IP4, int IPAR>
+  inline fptype_sv ALWAYS_INLINE
+  kernelAccessIp4IparConst( const fptype* buffer ) {
+    return *reinterpret_cast<const fptype_sv*>( &buffer[IPAR * CPPProcess::np4 * neppV + IP4 * neppV] );
+  }
+
   // Compute the output wavefunction fo[6] from the input momenta[npar*4*nevt]
   // ASSUMPTIONS: (FMASS == 0) and (PX == PY == 0 and E == +PZ > 0)
   inline void  ALWAYS_INLINE
   myopzxxx( const fptype momenta[], // input: momenta
             const int nhel,         // input: -1 or +1 (helicity of fermion)
             cxtype_sv wavefunctions[] ) {// output: wavefunctions
-    const fptype_sv& pvec3 = KernelAccessMomenta<false>::kernelAccessIp4IparConst( momenta, 3, 0 );
+    const fptype_sv& pvec3 = kernelAccessIp4IparConst<3,0>( momenta );
     cxtype_sv* fo =  wavefunctions;
     const fptype_v csqp0p3 = fpsqrt( 2. * pvec3 ) * (fptype)-1;
     fo[0] = { pvec3 * (fptype)-1, pvec3 * (fptype)-1 };
@@ -54,7 +58,7 @@ namespace mg5amcCpu {
   myimzxxx( const fptype momenta[], // input: momenta
             const int nhel,         // input: -1 or +1 (helicity of fermion)
             cxtype_sv wavefunctions[] ) { // output: wavefunctions
-    const fptype_sv& pvec3 = KernelAccessMomenta<false>::kernelAccessIp4IparConst( momenta, 3, 1 );
+    const fptype_sv& pvec3 = kernelAccessIp4IparConst<3,1>( momenta );
     cxtype_sv* fi = wavefunctions;
     const fptype_v chi = -(fptype)nhel * fpsqrt( -2. * pvec3 );
     fi[0] = { pvec3, -pvec3 };
@@ -66,10 +70,10 @@ namespace mg5amcCpu {
   myixzxxx( const fptype momenta[], // input: momenta
             const int nhel,         // input: -1 or +1 (helicity of fermion)
             cxtype_sv wavefunctions[] ) { // output: wavefunctions
-    const fptype_sv& pvec0 = KernelAccessMomenta<false>::kernelAccessIp4IparConst( momenta, 0, 2 );
-    const fptype_sv& pvec1 = KernelAccessMomenta<false>::kernelAccessIp4IparConst( momenta, 1, 2 );
-    const fptype_sv& pvec2 = KernelAccessMomenta<false>::kernelAccessIp4IparConst( momenta, 2, 2 );
-    const fptype_sv& pvec3 = KernelAccessMomenta<false>::kernelAccessIp4IparConst( momenta, 3, 2 );
+    const fptype_sv& pvec0 = kernelAccessIp4IparConst<0,2>( momenta );
+    const fptype_sv& pvec1 = kernelAccessIp4IparConst<1,2>( momenta );
+    const fptype_sv& pvec2 = kernelAccessIp4IparConst<2,2>( momenta );
+    const fptype_sv& pvec3 = kernelAccessIp4IparConst<3,2>( momenta );
     cxtype_sv* fi = wavefunctions;
     fi[0] = { -pvec0 * (fptype)-1, -pvec3 * (fptype)-1 }; // AV: BUG FIX
     fi[1] = { -pvec1 * (fptype)-1, -pvec2 * (fptype)-1 }; // AV: BUG FIX
@@ -93,10 +97,10 @@ namespace mg5amcCpu {
   myoxzxxx( const fptype momenta[], // input: momenta
             const int nhel,         // input: -1 or +1 (helicity of fermion)
             cxtype_sv wavefunctions[] ) { // output: wavefunctions
-    const fptype_sv& pvec0 = KernelAccessMomenta<false>::kernelAccessIp4IparConst( momenta, 0, 3 );
-    const fptype_sv& pvec1 = KernelAccessMomenta<false>::kernelAccessIp4IparConst( momenta, 1, 3 );
-    const fptype_sv& pvec2 = KernelAccessMomenta<false>::kernelAccessIp4IparConst( momenta, 2, 3 );
-    const fptype_sv& pvec3 = KernelAccessMomenta<false>::kernelAccessIp4IparConst( momenta, 3, 3 );
+    const fptype_sv& pvec0 = kernelAccessIp4IparConst<0,3>( momenta );
+    const fptype_sv& pvec1 = kernelAccessIp4IparConst<1,3>( momenta );
+    const fptype_sv& pvec2 = kernelAccessIp4IparConst<2,3>( momenta );
+    const fptype_sv& pvec3 = kernelAccessIp4IparConst<3,3>( momenta );
     cxtype_sv* fo = wavefunctions;
     fo[0] = { pvec0, pvec3 };
     fo[1] = { pvec1, pvec2 };
@@ -404,7 +408,8 @@ namespace mg5amcCpu {
     for( int ievt0 = 0; ievt0 < nevt; ievt0 += neppV ) {
       const fptype* gs = &( allgs[ievt0] );
       fptype* couplings = &( allcouplings[ievt0 * ndcoup * mgOnGpu::nx2] );
-      G2COUP<HostAccessGs, int>( gs, couplings );
+      const fptype_sv& gs_sv = *reinterpret_cast<const fptype_sv*>( gs );
+      Parameters_sm_dependentCouplings::computeDependentCouplings_fromG( gs_sv );
     }
   }
 

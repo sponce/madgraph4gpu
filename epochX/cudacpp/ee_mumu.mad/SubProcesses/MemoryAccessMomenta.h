@@ -124,39 +124,13 @@ namespace mg5amcCpu {
     static __host__ __device__ inline fptype_sv
     kernelAccessIp4IparConst( const fptype* buffer,
                               const int ip4,
-                              const int ipar )
-    {
-      const fptype& out = kernelAccessIp4IparConst_s( buffer, ip4, ipar );
-#ifndef MGONGPU_CPPSIMD
-      return out;
-#else
-      constexpr bool useContiguousEventsIfPossible = true; // DEFAULT
-      // Use c++17 "if constexpr": compile-time branching
-      if constexpr( useContiguousEventsIfPossible && ( neppV >= neppV ) && ( neppV % neppV == 0 ) ) {
-        constexpr bool skipAlignmentCheck = false; // DEFAULT: A BIT SLOWER BUT SAFER [ALLOWS MISALIGNED ACCESS]
-        if constexpr( skipAlignmentCheck ) {
-          // FASTEST? (5.09E6 in eemumu 512y)
-          // This assumes alignment for momenta1d without checking - causes segmentation fault in reinterpret_cast if not aligned!
-          return mg5amcCpu::fptypevFromAlignedArray( out ); // use reinterpret_cast
-        } else if( (size_t)( buffer ) % mgOnGpu::cppAlign == 0 ) {
-          // DEFAULT! A tiny bit (<1%) slower because of the alignment check (5.07E6 in eemumu 512y)
-          // This explicitly checks buffer alignment to avoid segmentation faults in reinterpret_cast
-          return mg5amcCpu::fptypevFromAlignedArray( out ); // SIMD bulk load of neppV, use reinterpret_cast
-        } else {
-          // A bit (1%) slower (5.05E6 in eemumu 512y)
-          // This does not require buffer alignment, but it requires AOSOA with neppV>=neppV and neppV%neppV==0
-          return mg5amcCpu::fptypevFromUnalignedArray( out ); // SIMD bulk load of neppV, do not use reinterpret_cast (fewer SIMD operations)
-        }
+                              const int ipar ) {
+      const fptype& out = buffer[ipar * CPPProcess::np4 * neppV + ip4 * neppV];
+      if( (size_t)( buffer ) % mgOnGpu::cppAlign == 0 ) {
+        return mg5amcCpu::fptypevFromAlignedArray( out );
       } else {
-        // ?!Used to be much slower, now a tiny bit faster for AOSOA?! (5.11E6 for AOSOA, 4.64E6 for AOS in eemumu 512y)
-        // This does not even require AOSOA with neppV>=neppV and neppV%neppV==0 (e.g. can be used with AOS neppV==1)
-        constexpr int ievt0 = 0; // just make it explicit in the code that buffer refers to a given ievt0 and decoderIeppV fetches event ievt0+ieppV
-        auto decoderIeppv = [buffer, ip4, ipar]( int ieppV )
-          -> const fptype&
-        { return MemoryAccessMomenta::ieventAccessIp4IparConst( buffer, ievt0 + ieppV, ip4, ipar ); };
-        return mg5amcCpu::fptypevFromArbitraryArray( decoderIeppv ); // iterate over ieppV in neppV (no SIMD)
+        return mg5amcCpu::fptypevFromUnalignedArray( out );
       }
-#endif
     }
 
     // Is this a HostAccess or DeviceAccess class?

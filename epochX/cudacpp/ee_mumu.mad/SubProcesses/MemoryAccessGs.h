@@ -123,7 +123,7 @@ namespace mg5amcCpu
     // Locate a field (output) in a memory buffer (input) from a kernel event-indexing mechanism (internal) and the given field indexes (input)
     // [Signature (const, SCALAR) ===> const fptype& kernelAccessConst( const fptype* buffer ) <===]
     static constexpr auto kernelAccessConst_s =
-      KernelAccessHelper<MemoryAccessGsBase, onDevice>::template kernelAccessFieldConst<>; // requires cuda 11.4
+      KernelAccessHelper<MemoryAccessGsBase, onDevice>::template kernelAccessFieldConst<>;
 
     // Locate a field (output) in a memory buffer (input) from a kernel event-indexing mechanism (internal)
     // [Signature (const, SCALAR OR VECTOR) ===> const fptype_sv& kernelAccess( const fptype* buffer ) <===]
@@ -134,9 +134,6 @@ namespace mg5amcCpu
 #ifndef MGONGPU_CPPSIMD
       return out;
 #else
-      // NB: derived from MemoryAccessMomenta, restricting the implementation to contiguous aligned arrays (#435)
-      static_assert( mg5amcCpu::HostBufferGs::isaligned() ); // ASSUME ALIGNED ARRAYS (reinterpret_cast will segfault otherwise!)
-      //assert( (size_t)( buffer ) % mgOnGpu::cppAlign == 0 ); // ASSUME ALIGNED ARRAYS (reinterpret_cast will segfault otherwise!)
       return mg5amcCpu::fptypevFromAlignedArray( out ); // SIMD bulk load of neppV, use reinterpret_cast
 #endif
     }
