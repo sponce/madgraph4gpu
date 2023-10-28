@@ -60,14 +60,14 @@ namespace mg5amcCpu {
   }
 
   void RamboSamplingKernelHost::getMomentaFinal() {
-    for( size_t ievt = 0; ievt < nevt(); ++ievt ) {
-      // NB all KernelLaunchers assume that memory access can be decomposed as "accessField = decodeRecord( accessRecord )"
-      const int ipagM = ievt / neppV; // #event "M-page"
-      const int ieppM = ievt % neppV; // #event in the current event M-page
-      const fptype* ievtRndmom =  &( m_rndmom.data()[ipagM * nparf * np4 * neppV + ieppM] ); // AOSOA[ipagR][0][0][ieppR]
-      fptype* ievtMomenta = &( m_momenta.data()[ipagM * npar * np4 * neppV + ieppM] ); // AOSOA[ipagM][0][0][ieppM]      
-      fptype* ievtWeights = &( m_weights.data()[ievt] );
-      ramboGetMomentaFinal( m_energy, ievtRndmom, ievtMomenta, ievtWeights );
+    for( size_t ievt = 0; ievt < nevt(); ievt+=neppV ) {
+      for( size_t ieppM = 0; ieppM < neppV; ++ieppM ) {
+        // AOSOA[ipagM][0][0][ieppM]
+        const fptype* ievtRndmom =  &( m_rndmom.data()[ievt * nparf * np4 + ieppM] );
+        fptype* ievtMomenta = &( m_momenta.data()[ievt * npar * np4 + ieppM] );
+        fptype* ievtWeights = &( m_weights.data()[ievt+ieppM] );
+        ramboGetMomentaFinal( m_energy, ievtRndmom, ievtMomenta, ievtWeights );
+      }
     }
   }
 

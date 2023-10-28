@@ -99,10 +99,10 @@ namespace mg5amcCpu {
     // generate n massless momenta in infinite phase space
     fptype q[nparf][np4];
     for( int iparf = 0; iparf < nparf; iparf++ ) {
-      const fptype r1 = HostAccessRandomNumbers::kernelAccessIp4IparfConst( rndmom, 0, iparf );
-      const fptype r2 = HostAccessRandomNumbers::kernelAccessIp4IparfConst( rndmom, 1, iparf );
-      const fptype r3 = HostAccessRandomNumbers::kernelAccessIp4IparfConst( rndmom, 2, iparf );
-      const fptype r4 = HostAccessRandomNumbers::kernelAccessIp4IparfConst( rndmom, 3, iparf );
+      const fptype r1 = rndmom[(iparf * 4    ) * 8];
+      const fptype r2 = rndmom[(iparf * 4 + 1) * 8];
+      const fptype r3 = rndmom[(iparf * 4 + 2) * 8];
+      const fptype r4 = rndmom[(iparf * 4 + 3) * 8];
       const fptype c = 2. * r1 - 1.;
       const fptype s = sqrt( 1. - c * c );
       const fptype f = twopi * r2;

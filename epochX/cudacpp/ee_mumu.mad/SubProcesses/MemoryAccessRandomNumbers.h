@@ -32,7 +32,7 @@ public: /* clang-format off */
   static constexpr int neppR = 8; // HARDCODED TO GIVE ALWAYS THE SAME PHYSICS RESULTS!
   //static constexpr int neppR = 1; // AOS (tests of sectors/requests)
 
-private: /* clang-format on */
+  //private: /* clang-format on */
 
   friend class MemoryAccessHelper<MemoryAccessRandomNumbersBase>;
   friend class KernelAccessHelper<MemoryAccessRandomNumbersBase, true>;
@@ -70,11 +70,8 @@ private: /* clang-format on */
   static __host__ __device__ inline fptype&
   decodeRecord( fptype* buffer,
                 const int ip4,
-                const int iparf )
-  {
-    constexpr int ipagR = 0;
-    constexpr int ieppR = 0;
-    return buffer[ipagR * nparf * np4 * neppR + iparf * np4 * neppR + ip4 * neppR + ieppR]; // AOSOA[ipagR][iparf][ip4][ieppR]
+                const int iparf ) {
+    return buffer[iparf * np4 * neppR + ip4 * neppR]; // AOSOA[0][iparf][ip4][0]
   }
 };
 
