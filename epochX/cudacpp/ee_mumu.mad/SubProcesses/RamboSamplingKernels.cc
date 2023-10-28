@@ -26,9 +26,6 @@ namespace mg5amcCpu {
     , m_rndmom( rndmom )
     , m_momenta( momenta )
     , m_weights( weights ) {
-    if( m_rndmom.isOnDevice() ) throw std::runtime_error( "RamboSamplingKernelHost: rndmom must be a host array" );
-    if( m_momenta.isOnDevice() ) throw std::runtime_error( "RamboSamplingKernelHost: momenta must be a host array" );
-    if( m_weights.isOnDevice() ) throw std::runtime_error( "RamboSamplingKernelHost: weights must be a host array" );
     if( this->nevt() != m_rndmom.nevt() ) throw std::runtime_error( "RamboSamplingKernelHost: nevt mismatch with rndmom" );
     if( this->nevt() != m_momenta.nevt() ) throw std::runtime_error( "RamboSamplingKernelHost: nevt mismatch with momenta" );
     if( this->nevt() != m_weights.nevt() ) throw std::runtime_error( "RamboSamplingKernelHost: nevt mismatch with weights" );

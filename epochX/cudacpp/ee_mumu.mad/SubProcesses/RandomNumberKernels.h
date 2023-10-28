@@ -19,8 +19,6 @@ namespace mg5amcCpu {
     void seedGenerator( const unsigned int seed ) { m_seed = seed; };
     // Generate the random number array
     void generateRnarray();
-    // Is this a host or device kernel?
-    bool isOnDevice() const { return false; }
 
   private:
     // The buffer for the output random numbers

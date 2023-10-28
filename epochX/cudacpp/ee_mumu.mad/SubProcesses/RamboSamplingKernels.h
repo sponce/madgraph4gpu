@@ -21,8 +21,6 @@ namespace mg5amcCpu {
     void getMomentaInitial();
     // Get momenta of final state particles and weights
     void getMomentaFinal();
-    // Is this a host or device kernel?
-    bool isOnDevice() const { return false; }
     
     // The energy
     const fptype m_energy;
