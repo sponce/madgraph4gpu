@@ -21,22 +21,15 @@
 // If set: return a pair of (fptype&, fptype&) by non-const reference in cxtype_v::operator[]
 // This is forbidden in clang ("non-const reference cannot bind to vector element")
 // See also https://stackoverflow.com/questions/26554829
-//#define MGONGPU_HAS_CPPCXTYPEV_BRK 1 // clang test (compilation fails also on clang 12.0, issue #182)
 #undef MGONGPU_HAS_CPPCXTYPEV_BRK // clang default
 #elif defined __INTEL_COMPILER
-//#define MGONGPU_HAS_CPPCXTYPEV_BRK 1 // icc default?
 #undef MGONGPU_HAS_CPPCXTYPEV_BRK // icc test
 #else
 #define MGONGPU_HAS_CPPCXTYPEV_BRK 1 // gcc default
-//#undef MGONGPU_HAS_CPPCXTYPEV_BRK // gcc test (very slightly slower? issue #172)
 #endif
 
 // NB: namespaces mg5amcGpu and mg5amcCpu includes types which are defined in different ways for CPU and GPU builds (see #318 and #725)
-#ifdef __CUDACC__
-namespace mg5amcGpu
-#else
 namespace mg5amcCpu
-#endif
 {
 #ifdef MGONGPU_CPPSIMD
 
@@ -807,64 +800,8 @@ namespace mg5amcCpu
 
 #endif // #ifndef __CUDACC__
 
-  //==========================================================================
-
-#ifdef __CUDACC__
-
-  //------------------------------
-  // Vector types - CUDA
-  //------------------------------
-
-  // Printout to std::cout for user defined types
-  inline __host__ __device__ void
-  print( const fptype& f )
-  {
-    printf( "%f\n", f );
-  }
-  inline __host__ __device__ void
-  print( const cxtype& c )
-  {
-    printf( "[%f, %f]\n", cxreal( c ), cximag( c ) );
-  }
-
-  /*
-  inline __host__ __device__ const cxtype&
-  cxvmake( const cxtype& c )
-  {
-    return c;
-  }
-  */
-
-  inline __host__ __device__ fptype
-  fpternary( const bool& mask, const fptype& a, const fptype& b )
-  {
-    return ( mask ? a : b );
-  }
-
-  inline __host__ __device__ cxtype
-  cxternary( const bool& mask, const cxtype& a, const cxtype& b )
-  {
-    return ( mask ? a : b );
-  }
-
-  inline __host__ __device__ bool
-  maskand( const bool& mask )
-  {
-    return mask;
-  }
-
-#endif // #ifdef __CUDACC__
-
-  //==========================================================================
-
   // Scalar-or-vector types: scalar in CUDA, vector or scalar in C++
-#ifdef __CUDACC__
-  typedef bool bool_sv;
-  typedef fptype fptype_sv;
-  typedef fptype2 fptype2_sv;
-  typedef cxtype cxtype_sv;
-  typedef cxtype_ref cxtype_sv_ref;
-#elif defined MGONGPU_CPPSIMD
+#ifdef MGONGPU_CPPSIMD
   typedef bool_v bool_sv;
   typedef fptype_v fptype_sv;
   typedef fptype2_v fptype2_sv;
@@ -879,9 +816,7 @@ namespace mg5amcCpu
 #endif
 
   // Scalar-or-vector zeros: scalar in CUDA, vector or scalar in C++
-#ifdef __CUDACC__ /* clang-format off */
-  inline __host__ __device__ cxtype cxzero_sv(){ return cxtype( 0, 0 ); }
-#elif defined MGONGPU_CPPSIMD
+#ifdef MGONGPU_CPPSIMD
   inline cxtype_v cxzero_sv() { return cxtype_v(); } // RRRR=0000 IIII=0000
 #else
   inline cxtype cxzero_sv() { return cxtype( 0, 0 ); }
