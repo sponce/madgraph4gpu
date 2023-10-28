@@ -55,7 +55,7 @@ int
 usage( char* argv0, int ret = 1 )
 {
   std::cout << "Usage: " << argv0
-            << " [--verbose|-v] [--debug|-d] [--performance|-p] [--json|-j] [--curhst|--curdev|--common] [--rmbhst|--rmbdev] [--bridge]"
+            << " [--verbose|-v] [--debug|-d] [--performance|-p] [--json|-j] [--curhst|--curdev|--common] [--rmbhst|--rmbdev]"
             << " [#gpuBlocksPerGrid #gpuThreadsPerBlock] #iterations" << std::endl;
   std::cout << std::endl;
   std::cout << "The number of events per iteration is #gpuBlocksPerGrid * #gpuThreadsPerBlock" << std::endl;
@@ -108,8 +108,6 @@ main( int argc, char** argv )
     RamboDevice = 2
   };
   RamboSamplingMode rmbsmp = RamboSamplingMode::RamboHost; // default on CPU
-  // Bridge emulation mode (NB Bridge implies RamboHost!)
-  bool bridge = false;
 
   // READ COMMAND LINE ARGUMENTS
   for( int argn = 1; argn < argc; ++argn )
@@ -155,10 +153,6 @@ main( int argc, char** argv )
     {
       rmbsmp = RamboSamplingMode::RamboHost;
     }
-    else if( arg == "--bridge" )
-    {
-      bridge = true;
-    }
     else if( is_number( argv[argn] ) && nnum < 5 )
     {
       numvec[nnum++] = strtoul( argv[argn], NULL, 0 );
@@ -191,12 +185,6 @@ main( int argc, char** argv )
 
   if( niter == 0 )
     return usage( argv[0] );
-
-  if( bridge && rmbsmp == RamboSamplingMode::RamboDevice )
-  {
-    std::cout << "WARNING! Bridge selected: cannot use RamboDevice, will use RamboHost" << std::endl;
-    rmbsmp = RamboSamplingMode::RamboHost;
-  }
 
   if( rmbsmp == RamboSamplingMode::RamboHost && rndgen == RandomNumberMode::CurandDevice )
   {
@@ -309,15 +297,7 @@ main( int argc, char** argv )
   RamboSamplingKernelHost prsk( energy, hstRndmom, hstMomenta, hstWeights, nevt );
 
   // --- 0c. Create matrix element kernel [keep this in 0c for the moment]
-  std::unique_ptr<MatrixElementKernelBase> pmek;
-  if( !bridge )
-  {
-    pmek.reset( new MatrixElementKernelHost( hstMomenta, hstGs, hstRndHel, hstRndCol, hstMatrixElements, hstSelHel, hstSelCol, nevt ) );
-  }
-  else
-  {
-    pmek.reset( new BridgeKernelHost( hstMomenta, hstGs, hstRndHel, hstRndCol, hstMatrixElements, hstSelHel, hstSelCol, nevt ) );
-  }
+  MatrixElementKernelHost pmek( hstMomenta, hstGs, hstRndHel, hstRndCol, hstMatrixElements, hstSelHel, hstSelCol, nevt );
   int nGoodHel = 0; // the number of good helicities (out of ncomb)
 
   // --- 0c. Create cross section kernel [keep this in 0c for the moment]
@@ -381,20 +361,12 @@ main( int argc, char** argv )
     // 3a. Evaluate MEs on the device (include transpose F2C for Bridge)
     // 3b. Copy MEs back from device to host
 
-    // --- 0d. TransC2F
-    if( bridge )
-    {
-      const std::string tc2fKey = "0d TransC2F";
-      timermap.start( tc2fKey );
-      dynamic_cast<BridgeKernelBase*>( pmek.get() )->transposeInputMomentaC2F();
-    }
-
     // --- 0e. SGoodHel
     if( iiter == 0 )
     {
       const std::string ghelKey = "0e SGoodHel";
       timermap.start( ghelKey );
-      nGoodHel = pmek->computeGoodHelicities();
+      nGoodHel = pmek.computeGoodHelicities();
     }
 
     // *** START THE OLD-STYLE TIMERS FOR MATRIX ELEMENTS (WAVEFUNCTIONS) ***
@@ -405,7 +377,7 @@ main( int argc, char** argv )
     const std::string skinKey = "3a SigmaKin";
     timermap.start( skinKey );
     constexpr unsigned int channelId = 0; // TEMPORARY? disable multi-channel in check.exe and gcheck.exe #466
-    pmek->computeMatrixElements( channelId );
+    pmek.computeMatrixElements( channelId );
 
     // *** STOP THE NEW OLD-STYLE TIMER FOR MATRIX ELEMENTS (WAVEFUNCTIONS) ***
     wv3atime += timermap.stop(); // calc only
@@ -561,10 +533,7 @@ main( int argc, char** argv )
     wrkflwtxt += "RMBDEV+";
   else
     wrkflwtxt += "??????+"; // no path to this statement
-  if( !bridge )
-    wrkflwtxt += "MESHST"; // FIXME! allow this also in CUDA (eventually with various simd levels)
-  else
-    wrkflwtxt += "BRDHST";
+  wrkflwtxt += "MESHST"; // FIXME! allow this also in CUDA (eventually with various simd levels)
     // -- SIMD matrix elements?
 #if !defined MGONGPU_CPPSIMD
   wrkflwtxt += "/none";

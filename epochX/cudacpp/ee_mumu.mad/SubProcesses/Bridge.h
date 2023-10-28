@@ -3,8 +3,7 @@
 // Created by: S. Roiser (Nov 2021) for the MG5aMC CUDACPP plugin.
 // Further modified by: S. Roiser, A. Valassi (2021-2023) for the MG5aMC CUDACPP plugin.
 
-#ifndef BRIDGE_H
-#define BRIDGE_H 1
+#pragma once
 
 #include "mgOnGpuConfig.h"
 
@@ -23,12 +22,7 @@
 #include <memory>
 #include <type_traits>
 
-#ifdef __CUDACC__
-namespace mg5amcGpu
-#else
-namespace mg5amcCpu
-#endif
-{
+namespace mg5amcCpu {
   //--------------------------------------------------------------------------
   /**
    * A base class for a class whose pointer is passed between Fortran and C++.
@@ -83,39 +77,6 @@ namespace mg5amcCpu
     Bridge& operator=( const Bridge& ) = delete;
     Bridge& operator=( Bridge&& ) = delete;
 
-#ifdef __CUDACC__
-    /**
-     * Set the gpublocks and gputhreads for the gpusequence - throws if evnt != gpublocks*gputhreads
-     * (this is needed for BridgeKernel tests rather than for actual production use in Fortran)
-     *
-     * @param gpublocks number of gpublocks
-     * @param gputhreads number of gputhreads
-     */
-    void set_gpugrid( const int gpublocks, const int gputhreads );
-
-    /**
-     * Sequence to be executed for the Cuda matrix element calculation
-     *
-     * @param momenta the pointer to the input 4-momenta
-     * @param gs the pointer to the input Gs (running QCD coupling constant alphas)
-     * @param rndhel the pointer to the input random numbers for helicity selection
-     * @param rndcol the pointer to the input random numbers for color selection
-     * @param channelId the Feynman diagram to enhance in multi-channel mode if 1 to n (disable multi-channel if 0)
-     * @param mes the pointer to the output matrix elements
-     * @param goodHelOnly quit after computing good helicities?
-     * @param selhel the pointer to the output selected helicities
-     * @param selcol the pointer to the output selected colors
-     */
-    void gpu_sequence( const FORTRANFPTYPE* momenta,
-                       const FORTRANFPTYPE* gs,
-                       const FORTRANFPTYPE* rndhel,
-                       const FORTRANFPTYPE* rndcol,
-                       const unsigned int channelId,
-                       FORTRANFPTYPE* mes,
-                       int* selhel,
-                       int* selcol,
-                       const bool goodHelOnly = false );
-#else
     /**
      * Sequence to be executed for the vectorized CPU matrix element calculation
      *
@@ -138,7 +99,6 @@ namespace mg5amcCpu
                        int* selhel,
                        int* selcol,
                        const bool goodHelOnly = false );
-#endif
 
     // Return the number of good helicities (-1 initially when they have not yet been calculated)
     int nGoodHel() const { return m_nGoodHel; }
@@ -149,28 +109,6 @@ namespace mg5amcCpu
   private:
     unsigned int m_nevt; // number of events
     int m_nGoodHel;      // the number of good helicities (-1 initially when they have not yet been calculated)
-
-#ifdef __CUDACC__
-    int m_gputhreads; // number of gpu threads (default set from number of events, can be modified)
-    int m_gpublocks;  // number of gpu blocks (default set from number of events, can be modified)
-    DeviceBuffer<FORTRANFPTYPE, sizePerEventMomenta> m_devMomentaF;
-    DeviceBufferMomenta m_devMomentaC;
-    DeviceBufferGs m_devGs;
-    DeviceBufferRndNumHelicity m_devRndHel;
-    DeviceBufferRndNumColor m_devRndCol;
-    DeviceBufferMatrixElements m_devMEs;
-    DeviceBufferSelectedHelicity m_devSelHel;
-    DeviceBufferSelectedColor m_devSelCol;
-    PinnedHostBufferGs m_hstGs;
-    PinnedHostBufferRndNumHelicity m_hstRndHel;
-    PinnedHostBufferRndNumColor m_hstRndCol;
-    PinnedHostBufferMatrixElements m_hstMEs;
-    PinnedHostBufferSelectedHelicity m_hstSelHel;
-    PinnedHostBufferSelectedColor m_hstSelCol;
-    std::unique_ptr<MatrixElementKernelDevice> m_pmek;
-    //static constexpr int s_gputhreadsmin = 16; // minimum number of gpu threads (TEST VALUE FOR MADEVENT)
-    static constexpr int s_gputhreadsmin = 32; // minimum number of gpu threads (DEFAULT)
-#else
     HostBufferMomenta m_hstMomentaC;
     HostBufferGs m_hstGs;
     HostBufferRndNumHelicity m_hstRndHel;
@@ -178,21 +116,13 @@ namespace mg5amcCpu
     HostBufferMatrixElements m_hstMEs;
     HostBufferSelectedHelicity m_hstSelHel;
     HostBufferSelectedColor m_hstSelCol;
-    std::unique_ptr<MatrixElementKernelHost> m_pmek;
-#endif
+    MatrixElementKernelHost m_pmek;
   };
 
   //--------------------------------------------------------------------------
   //
   // Forward declare transposition methods
   //
-
-#ifdef __CUDACC__
-
-  template<typename Tin, typename Tout>
-  __global__ void dev_transposeMomentaF2C( const Tin* in, Tout* out, const unsigned int nevt );
-
-#endif // __CUDACC__
 
   template<typename Tin, typename Tout>
   void hst_transposeMomentaF2C( const Tin* in, Tout* out, const unsigned int nevt );
@@ -209,47 +139,18 @@ namespace mg5amcCpu
   Bridge<FORTRANFPTYPE>::Bridge( unsigned int nevtF, unsigned int nparF, unsigned int np4F )
     : m_nevt( nevtF )
     , m_nGoodHel( -1 )
-#ifdef __CUDACC__
-    , m_gputhreads( 256 )                  // default number of gpu threads
-    , m_gpublocks( m_nevt / m_gputhreads ) // this ensures m_nevt <= m_gpublocks*m_gputhreads
-    , m_devMomentaF( m_nevt )
-    , m_devMomentaC( m_nevt )
-    , m_devGs( m_nevt )
-    , m_devRndHel( m_nevt )
-    , m_devRndCol( m_nevt )
-    , m_devMEs( m_nevt )
-    , m_devSelHel( m_nevt )
-    , m_devSelCol( m_nevt )
-#else
     , m_hstMomentaC( m_nevt )
-#endif
     , m_hstGs( m_nevt )
     , m_hstRndHel( m_nevt )
     , m_hstRndCol( m_nevt )
     , m_hstMEs( m_nevt )
     , m_hstSelHel( m_nevt )
     , m_hstSelCol( m_nevt )
-    , m_pmek( nullptr )
+    , m_pmek( m_hstMomentaC, m_hstGs, m_hstRndHel, m_hstRndCol, m_hstMEs, m_hstSelHel, m_hstSelCol, m_nevt )
   {
     if( nparF != CPPProcess::npar ) throw std::runtime_error( "Bridge constructor: npar mismatch" );
     if( np4F != CPPProcess::np4 ) throw std::runtime_error( "Bridge constructor: np4 mismatch" );
-#ifdef __CUDACC__
-    if( ( m_nevt < s_gputhreadsmin ) || ( m_nevt % s_gputhreadsmin != 0 ) )
-      throw std::runtime_error( "Bridge constructor: nevt should be a multiple of " + std::to_string( s_gputhreadsmin ) );
-    while( m_nevt != m_gpublocks * m_gputhreads )
-    {
-      m_gputhreads /= 2;
-      if( m_gputhreads < s_gputhreadsmin )
-        throw std::logic_error( "Bridge constructor: FIXME! cannot choose gputhreads" ); // this should never happen!
-      m_gpublocks = m_nevt / m_gputhreads;
-    }
-    std::cout << "WARNING! Instantiate device Bridge (nevt=" << m_nevt << ", gpublocks=" << m_gpublocks << ", gputhreads=" << m_gputhreads
-              << ", gpublocks*gputhreads=" << m_gpublocks * m_gputhreads << ")" << std::endl;
-    m_pmek.reset( new MatrixElementKernelDevice( m_devMomentaC, m_devGs, m_devRndHel, m_devRndCol, m_devMEs, m_devSelHel, m_devSelCol, m_gpublocks, m_gputhreads ) );
-#else
     std::cout << "WARNING! Instantiate host Bridge (nevt=" << m_nevt << ")" << std::endl;
-    m_pmek.reset( new MatrixElementKernelHost( m_hstMomentaC, m_hstGs, m_hstRndHel, m_hstRndCol, m_hstMEs, m_hstSelHel, m_hstSelCol, m_nevt ) );
-#endif // __CUDACC__
     // Create a process object, read param card and set parameters
     // FIXME: the process instance can happily go out of scope because it is only needed to read parameters?
     // FIXME: the CPPProcess should really be a singleton? what if fbridgecreate is called from several Fortran threads?
@@ -262,85 +163,6 @@ namespace mg5amcCpu
     process.initProc( paramCard );
   }
 
-#ifdef __CUDACC__
-  template<typename FORTRANFPTYPE>
-  void Bridge<FORTRANFPTYPE>::set_gpugrid( const int gpublocks, const int gputhreads )
-  {
-    if( m_nevt != gpublocks * gputhreads )
-      throw std::runtime_error( "Bridge: gpublocks*gputhreads must equal m_nevt in set_gpugrid" );
-    m_gpublocks = gpublocks;
-    m_gputhreads = gputhreads;
-    std::cout << "WARNING! Set grid in Bridge (nevt=" << m_nevt << ", gpublocks=" << m_gpublocks << ", gputhreads=" << m_gputhreads
-              << ", gpublocks*gputhreads=" << m_gpublocks * m_gputhreads << ")" << std::endl;
-    m_pmek->setGrid( m_gpublocks, m_gputhreads );
-  }
-#endif
-
-#ifdef __CUDACC__
-  template<typename FORTRANFPTYPE>
-  void Bridge<FORTRANFPTYPE>::gpu_sequence( const FORTRANFPTYPE* momenta,
-                                            const FORTRANFPTYPE* gs,
-                                            const FORTRANFPTYPE* rndhel,
-                                            const FORTRANFPTYPE* rndcol,
-                                            const unsigned int channelId,
-                                            FORTRANFPTYPE* mes,
-                                            int* selhel,
-                                            int* selcol,
-                                            const bool goodHelOnly )
-  {
-    if constexpr( neppV == 1 && std::is_same_v<FORTRANFPTYPE, fptype> )
-    {
-      checkCuda( cudaMemcpy( m_devMomentaC.data(), momenta, m_devMomentaC.bytes(), cudaMemcpyHostToDevice ) );
-    }
-    else
-    {
-      checkCuda( cudaMemcpy( m_devMomentaF.data(), momenta, m_devMomentaF.bytes(), cudaMemcpyHostToDevice ) );
-      const int thrPerEvt = CPPProcess::npar * CPPProcess::np4; // AV: transpose alg does 1 element per thread (NOT 1 event per thread)
-      //const int thrPerEvt = 1; // AV: try new alg with 1 event per thread... this seems slower
-      dev_transposeMomentaF2C<<<m_gpublocks * thrPerEvt, m_gputhreads>>>( m_devMomentaF.data(), m_devMomentaC.data(), m_nevt );
-    }
-    if constexpr( std::is_same_v<FORTRANFPTYPE, fptype> )
-    {
-      memcpy( m_hstGs.data(), gs, m_nevt * sizeof( FORTRANFPTYPE ) );
-      memcpy( m_hstRndHel.data(), rndhel, m_nevt * sizeof( FORTRANFPTYPE ) );
-      memcpy( m_hstRndCol.data(), rndcol, m_nevt * sizeof( FORTRANFPTYPE ) );
-    }
-    else
-    {
-      std::copy( gs, gs + m_nevt, m_hstGs.data() );
-      std::copy( rndhel, rndhel + m_nevt, m_hstRndHel.data() );
-      std::copy( rndcol, rndcol + m_nevt, m_hstRndCol.data() );
-    }
-    copyDeviceFromHost( m_devGs, m_hstGs );
-    copyDeviceFromHost( m_devRndHel, m_hstRndHel );
-    copyDeviceFromHost( m_devRndCol, m_hstRndCol );
-    if( m_nGoodHel < 0 )
-    {
-      m_nGoodHel = m_pmek->computeGoodHelicities();
-      if( m_nGoodHel < 0 ) throw std::runtime_error( "Bridge gpu_sequence: computeGoodHelicities returned nGoodHel<0" );
-    }
-    if( goodHelOnly ) return;
-    m_pmek->computeMatrixElements( channelId );
-    copyHostFromDevice( m_hstMEs, m_devMEs );
-    flagAbnormalMEs( m_hstMEs.data(), m_nevt );
-    copyHostFromDevice( m_hstSelHel, m_devSelHel );
-    copyHostFromDevice( m_hstSelCol, m_devSelCol );
-    if constexpr( std::is_same_v<FORTRANFPTYPE, fptype> )
-    {
-      memcpy( mes, m_hstMEs.data(), m_hstMEs.bytes() );
-      memcpy( selhel, m_hstSelHel.data(), m_hstSelHel.bytes() );
-      memcpy( selcol, m_hstSelCol.data(), m_hstSelCol.bytes() );
-    }
-    else
-    {
-      std::copy( m_hstMEs.data(), m_hstMEs.data() + m_nevt, mes );
-      std::copy( m_hstSelHel.data(), m_hstSelHel.data() + m_nevt, selhel );
-      std::copy( m_hstSelCol.data(), m_hstSelCol.data() + m_nevt, selcol );
-    }
-  }
-#endif
-
-#ifndef __CUDACC__
   template<typename FORTRANFPTYPE>
   void Bridge<FORTRANFPTYPE>::cpu_sequence( const FORTRANFPTYPE* momenta,
                                             const FORTRANFPTYPE* gs,
@@ -367,11 +189,11 @@ namespace mg5amcCpu
     }
     if( m_nGoodHel < 0 )
     {
-      m_nGoodHel = m_pmek->computeGoodHelicities();
+      m_nGoodHel = m_pmek.computeGoodHelicities();
       if( m_nGoodHel < 0 ) throw std::runtime_error( "Bridge cpu_sequence: computeGoodHelicities returned nGoodHel<0" );
     }
     if( goodHelOnly ) return;
-    m_pmek->computeMatrixElements( channelId );
+    m_pmek.computeMatrixElements( channelId );
     flagAbnormalMEs( m_hstMEs.data(), m_nevt );
     if constexpr( std::is_same_v<FORTRANFPTYPE, fptype> )
     {
@@ -386,7 +208,6 @@ namespace mg5amcCpu
       std::copy( m_hstSelCol.data(), m_hstSelCol.data() + m_nevt, selcol );
     }
   }
-#endif
 
   //--------------------------------------------------------------------------
   //
@@ -395,56 +216,6 @@ namespace mg5amcCpu
   // - C++ array: momenta[npagM][npar][np4][neppV] with nevt=npagM*neppV (AOSOA)
   //
 
-#ifdef __CUDACC__
-  template<typename Tin, typename Tout>
-  __global__ void dev_transposeMomentaF2C( const Tin* in, Tout* out, const unsigned int nevt )
-  {
-    constexpr bool oldImplementation = true; // default: use old implementation
-    if constexpr( oldImplementation )
-    {
-      // SR initial implementation
-      constexpr int part = CPPProcess::npar;
-      constexpr int mome = CPPProcess::np4;
-      constexpr int strd = MemoryAccessMomenta::neppV;
-      int pos = blockDim.x * blockIdx.x + threadIdx.x;
-      int arrlen = nevt * part * mome;
-      if( pos < arrlen )
-      {
-        int page_i = pos / ( strd * mome * part );
-        int rest_1 = pos % ( strd * mome * part );
-        int part_i = rest_1 / ( strd * mome );
-        int rest_2 = rest_1 % ( strd * mome );
-        int mome_i = rest_2 / strd;
-        int strd_i = rest_2 % strd;
-        int inpos =
-          ( page_i * strd + strd_i ) // event number
-            * ( part * mome )        // event size (pos of event)
-          + part_i * mome            // particle inside event
-          + mome_i;                  // momentum inside particle
-        out[pos] = in[inpos];        // F2C (Fortran to C)
-      }
-    }
-    else
-    {
-      // AV attempt another implementation with 1 event per thread: this seems slower...
-      // F-style: AOS[nevtF][nparF][np4F]
-      // C-style: AOSOA[npagM][npar][np4][neppV] with nevt=npagM*neppV
-      constexpr int npar = CPPProcess::npar;
-      constexpr int np4 = CPPProcess::np4;
-      assert( nevt % neppV == 0 ); // number of events is not a multiple of neppV???
-      int ievt = blockDim.x * blockIdx.x + threadIdx.x;
-      int ipagM = ievt / neppV;
-      int ieppM = ievt % neppV;
-      for( int ip4 = 0; ip4 < np4; ip4++ )
-        for( int ipar = 0; ipar < npar; ipar++ )
-        {
-          int cpos = ipagM * npar * np4 * neppV + ipar * np4 * neppV + ip4 * neppV + ieppM;
-          int fpos = ievt * npar * np4 + ipar * np4 + ip4;
-          out[cpos] = in[fpos]; // F2C (Fortran to C)
-        }
-    }
-  }
-#endif
 
   template<typename Tin, typename Tout, bool F2C>
   void hst_transposeMomenta( const Tin* in, Tout* out, const unsigned int nevt )
@@ -525,4 +296,3 @@ namespace mg5amcCpu
 
   //--------------------------------------------------------------------------
 }
-#endif // BRIDGE_H
