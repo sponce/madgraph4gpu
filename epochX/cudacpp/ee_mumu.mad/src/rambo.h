@@ -24,28 +24,30 @@ namespace mg5amcCpu {
   constexpr int nparf = CPPProcess::nparf; // #particles in the final state (outgoing): e.g. 2 (mu+ mu-) for e+ e- -> mu+ mu-
   constexpr int npar = CPPProcess::npar;   // #particles in total (external = initial + final): e.g. 4 for e+ e- -> mu+ mu-
 
+  inline __attribute__( ( always_inline ) ) fptype& kernelAccessIp4Ipar( fptype* buffer,
+                                                                        const int ip4,
+                                                                        const int ipar ) {
+    return buffer[ipar * np4 * neppV + ip4 * neppV]; // AOSOA[0][ipar][ip4][0]
+  }
+
   // Fill in the momenta of the initial particles
   // [NB: the output buffer includes both initial and final momenta, but only initial momenta are filled in]
-  template<class M_ACCESS>
   inline void __attribute__( ( always_inline ) )
   ramboGetMomentaInitial( const fptype energy, // input: energy
                           fptype* momenta ) {  // output: momenta for one event or for a set of events
-    const fptype energy1 = energy / 2;
-    const fptype energy2 = energy / 2;
     const fptype mom = energy / 2;
-    M_ACCESS::kernelAccessIp4Ipar( momenta, 0, 0 ) = energy1;
-    M_ACCESS::kernelAccessIp4Ipar( momenta, 1, 0 ) = 0;
-    M_ACCESS::kernelAccessIp4Ipar( momenta, 2, 0 ) = 0;
-    M_ACCESS::kernelAccessIp4Ipar( momenta, 3, 0 ) = mom;
-    M_ACCESS::kernelAccessIp4Ipar( momenta, 0, 1 ) = energy2;
-    M_ACCESS::kernelAccessIp4Ipar( momenta, 1, 1 ) = 0;
-    M_ACCESS::kernelAccessIp4Ipar( momenta, 2, 1 ) = 0;
-    M_ACCESS::kernelAccessIp4Ipar( momenta, 3, 1 ) = -mom;
+    momenta[0] = mom;
+    momenta[neppV] = 0;
+    momenta[2 * neppV] = 0;
+    momenta[3 * neppV] = mom;
+    momenta[4 * neppV] = mom;
+    momenta[5 * neppV] = 0;
+    momenta[6 * neppV] = 0;
+    momenta[7 * neppV] = -mom;
   }
 
   // Fill in the momenta of the final particles using the RAMBO algorithm
   // [NB: the output buffer includes both initial and final momenta, but only initial momenta are filled in]
-  template<class R_ACCESS, class M_ACCESS, class W_ACCESS>
   inline void __attribute__( ( always_inline ) )
   ramboGetMomentaFinal( const fptype energy,  // input: energy
                         const fptype* rndmom, // input: random numbers in [0,1] for one event or for a set of events
@@ -65,7 +67,7 @@ namespace mg5amcCpu {
      ****************************************************************************/
 
     // output weight
-    fptype& wt = W_ACCESS::kernelAccess( wgts );
+    fptype& wt = wgts[0];
 
     // AV special case nparf==1 (issue #358)
     if constexpr( nparf == 1 ) {
@@ -76,9 +78,9 @@ namespace mg5amcCpu {
       }
       const int iparf = 0;
       for( int i4 = 0; i4 < np4; i4++ ) {
-        M_ACCESS::kernelAccessIp4Ipar( momenta, i4, iparf + npari ) = 0;
+        kernelAccessIp4Ipar( momenta, i4, iparf + npari ) = 0;
         for( int ipari = 0; ipari < npari; ipari++ ) {
-          M_ACCESS::kernelAccessIp4Ipar( momenta, i4, iparf + npari ) += M_ACCESS::kernelAccessIp4Ipar( momenta, i4, ipari );
+          kernelAccessIp4Ipar( momenta, i4, iparf + npari ) += kernelAccessIp4Ipar( momenta, i4, ipari );
         }
       }
       wt = 1;
@@ -97,10 +99,10 @@ namespace mg5amcCpu {
     // generate n massless momenta in infinite phase space
     fptype q[nparf][np4];
     for( int iparf = 0; iparf < nparf; iparf++ ) {
-      const fptype r1 = R_ACCESS::kernelAccessIp4IparfConst( rndmom, 0, iparf );
-      const fptype r2 = R_ACCESS::kernelAccessIp4IparfConst( rndmom, 1, iparf );
-      const fptype r3 = R_ACCESS::kernelAccessIp4IparfConst( rndmom, 2, iparf );
-      const fptype r4 = R_ACCESS::kernelAccessIp4IparfConst( rndmom, 3, iparf );
+      const fptype r1 = HostAccessRandomNumbers::kernelAccessIp4IparfConst( rndmom, 0, iparf );
+      const fptype r2 = HostAccessRandomNumbers::kernelAccessIp4IparfConst( rndmom, 1, iparf );
+      const fptype r3 = HostAccessRandomNumbers::kernelAccessIp4IparfConst( rndmom, 2, iparf );
+      const fptype r4 = HostAccessRandomNumbers::kernelAccessIp4IparfConst( rndmom, 3, iparf );
       const fptype c = 2. * r1 - 1.;
       const fptype s = sqrt( 1. - c * c );
       const fptype f = twopi * r2;
@@ -127,9 +129,9 @@ namespace mg5amcCpu {
     for( int iparf = 0; iparf < nparf; iparf++ ) {
       fptype bq = b[0] * q[iparf][1] + b[1] * q[iparf][2] + b[2] * q[iparf][3];
       for( int i4 = 1; i4 < np4; i4++ ) {
-        M_ACCESS::kernelAccessIp4Ipar( momenta, i4, iparf + npari ) = x0 * ( q[iparf][i4] + b[i4 - 1] * ( q[iparf][0] + a * bq ) );
+        kernelAccessIp4Ipar( momenta, i4, iparf + npari ) = x0 * ( q[iparf][i4] + b[i4 - 1] * ( q[iparf][0] + a * bq ) );
       }
-      M_ACCESS::kernelAccessIp4Ipar( momenta, 0, iparf + npari ) = x0 * ( g * q[iparf][0] + bq );
+      kernelAccessIp4Ipar( momenta, 0, iparf + npari ) = x0 * ( g * q[iparf][0] + bq );
     }
 
     // calculate weight (NB return log of weight)

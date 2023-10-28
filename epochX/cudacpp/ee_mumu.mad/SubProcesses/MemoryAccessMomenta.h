@@ -3,8 +3,7 @@
 // Created by: A. Valassi (Dec 2021) for the MG5aMC CUDACPP plugin.
 // Further modified by: A. Valassi (2021-2023) for the MG5aMC CUDACPP plugin.
 
-#ifndef MemoryAccessMomenta_H
-#define MemoryAccessMomenta_H 1
+#pragma once
 
 #include "mgOnGpuConfig.h"
 
@@ -150,5 +149,3 @@ namespace mg5amcCpu {
   //----------------------------------------------------------------------------
 
 } // end namespace mg5amcGpu/mg5amcCpu
-
-#endif // MemoryAccessMomenta_H

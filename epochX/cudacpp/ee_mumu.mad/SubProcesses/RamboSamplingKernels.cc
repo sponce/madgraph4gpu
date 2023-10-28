@@ -13,6 +13,7 @@
 #include "rambo.h" // inline implementation of RAMBO algorithms and kernels
 
 #include <sstream>
+#include <cstring>
 
 namespace mg5amcCpu {
 
@@ -46,25 +47,28 @@ namespace mg5amcCpu {
   }
 
   void RamboSamplingKernelHost::getMomentaInitial() {
-    constexpr auto getMomentaInitial = ramboGetMomentaInitial<HostAccessMomenta>;
-    for( size_t ievt = 0; ievt < nevt(); ++ievt ) {
-      // NB all KernelLaunchers assume that memory access can be decomposed as "accessField = decodeRecord( accessRecord )"
-      fptype* ievtMomenta = MemoryAccessMomenta::ieventAccessRecord( m_momenta.data(), ievt );
-      getMomentaInitial( m_energy, ievtMomenta );
+    const fptype_v mom{m_energy / 2};
+    const fptype_v zero{0};
+    memset(m_momenta.data(), 0, nevt()*neppV*8);
+    for( size_t ievt = 0; ievt < nevt(); ievt += neppV ) {
+      fptype_v* momenta = reinterpret_cast<fptype_v*>(&m_momenta.data()[ievt * 8]);
+      momenta[0] = mom;
+      momenta[3] = mom;
+      momenta[4] = mom;
+      momenta[7] = -mom;
     }
   }
 
   void RamboSamplingKernelHost::getMomentaFinal() {
-    constexpr auto getMomentaFinal = ramboGetMomentaFinal<HostAccessRandomNumbers, HostAccessMomenta, HostAccessWeights>;
-    // ** START LOOP ON IEVT **
     for( size_t ievt = 0; ievt < nevt(); ++ievt ) {
       // NB all KernelLaunchers assume that memory access can be decomposed as "accessField = decodeRecord( accessRecord )"
-      const fptype* ievtRndmom = MemoryAccessRandomNumbers::ieventAccessRecordConst( m_rndmom.data(), ievt );
-      fptype* ievtMomenta = MemoryAccessMomenta::ieventAccessRecord( m_momenta.data(), ievt );
-      fptype* ievtWeights = MemoryAccessWeights::ieventAccessRecord( m_weights.data(), ievt );
-      getMomentaFinal( m_energy, ievtRndmom, ievtMomenta, ievtWeights );
+      const int ipagM = ievt / neppV; // #event "M-page"
+      const int ieppM = ievt % neppV; // #event in the current event M-page
+      const fptype* ievtRndmom =  &( m_rndmom.data()[ipagM * nparf * np4 * neppV + ieppM] ); // AOSOA[ipagR][0][0][ieppR]
+      fptype* ievtMomenta = &( m_momenta.data()[ipagM * npar * np4 * neppV + ieppM] ); // AOSOA[ipagM][0][0][ieppM]      
+      fptype* ievtWeights = &( m_weights.data()[ievt] );
+      ramboGetMomentaFinal( m_energy, ievtRndmom, ievtMomenta, ievtWeights );
     }
-    // ** END LOOP ON IEVT **
   }
 
 }
