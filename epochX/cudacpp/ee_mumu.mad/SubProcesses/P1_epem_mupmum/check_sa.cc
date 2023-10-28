@@ -303,27 +303,7 @@ main( int argc, char** argv )
   const std::string cgenKey = "0c GenCreat";
   timermap.start( cgenKey );
   // Allocate the appropriate RandomNumberKernel
-  std::unique_ptr<RandomNumberKernelBase> prnk;
-  if( rndgen == RandomNumberMode::CommonRandom )
-  {
-    prnk.reset( new CommonRandomNumberKernel( hstRndmom ) );
-  }
-#ifndef MGONGPU_HAS_NO_CURAND
-  else if( rndgen == RandomNumberMode::CurandHost )
-  {
-    const bool onDevice = false;
-    prnk.reset( new CurandRandomNumberKernel( hstRndmom, onDevice ) );
-  }
-  else
-  {
-    throw std::logic_error( "CurandDevice is not supported on CPUs" ); // INTERNAL ERROR (no path to this statement)
-  }
-#else
-  else
-  {
-    throw std::logic_error( "This application was built without Curand support" ); // INTERNAL ERROR (no path to this statement)
-  }
-#endif
+  CommonRandomNumberKernel prnk( hstRndmom );
 
   // --- 0c. Create rambo sampling kernel [keep this in 0c for the moment]
   std::unique_ptr<SamplingKernelBase> prsk;
@@ -371,13 +351,13 @@ main( int argc, char** argv )
     const unsigned long long seed = 20200805;
     const std::string sgenKey = "1a GenSeed ";
     timermap.start( sgenKey );
-    prnk->seedGenerator( seed + iiter );
+    prnk.seedGenerator( seed + iiter );
     genrtime += timermap.stop();
 
     // --- 1b. Generate all relevant numbers to build nevt events (i.e. nevt phase space points) on the host
     const std::string rngnKey = "1b GenRnGen";
     timermap.start( rngnKey );
-    prnk->generateRnarray();
+    prnk.generateRnarray();
 
     // *** STOP THE OLD-STYLE TIMER FOR RANDOM GEN ***
     genrtime += timermap.stop();

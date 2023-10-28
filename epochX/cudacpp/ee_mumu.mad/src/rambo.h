@@ -27,7 +27,7 @@ namespace mg5amcCpu {
   // Fill in the momenta of the initial particles
   // [NB: the output buffer includes both initial and final momenta, but only initial momenta are filled in]
   template<class M_ACCESS>
-  __host__ __device__ void
+  inline void __attribute__( ( always_inline ) )
   ramboGetMomentaInitial( const fptype energy, // input: energy
                           fptype* momenta ) {  // output: momenta for one event or for a set of events
     const fptype energy1 = energy / 2;

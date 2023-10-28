@@ -9,29 +9,19 @@
 
 #include <cassert>
 
-#ifdef __CUDACC__
-namespace mg5amcGpu
-#else
-namespace mg5amcCpu
-#endif
-{
-  //--------------------------------------------------------------------------
+namespace mg5amcCpu {
 
   CommonRandomNumberKernel::CommonRandomNumberKernel( BufferRndNumMomenta& rnarray )
-    : RandomNumberKernelBase( rnarray )
-    , m_seed( 20211220 )
-  {
+    : m_rnarray( rnarray ) , m_seed( 20211220 ) {
     if( m_rnarray.isOnDevice() )
       throw std::runtime_error( "CommonRandomNumberKernel on host with a device random number array" );
   }
 
-  //--------------------------------------------------------------------------
-
-  void CommonRandomNumberKernel::generateRnarray()
-  {
-    std::vector<double> rnd = CommonRandomNumbers::generate<double>( m_rnarray.size(), m_seed ); // NB: generate as double (HARDCODED)
-    std::copy( rnd.begin(), rnd.end(), m_rnarray.data() );                                       // NB: copy may imply a double-to-float conversion
+  void CommonRandomNumberKernel::generateRnarray() {
+    // NB: generate as double (HARDCODED)
+    std::vector<double> rnd = CommonRandomNumbers::generate<double>( m_rnarray.size(), m_seed );
+    // NB: copy may imply a double-to-float conversion
+    std::copy( rnd.begin(), rnd.end(), m_rnarray.data() );
   }
 
-  //--------------------------------------------------------------------------
 }

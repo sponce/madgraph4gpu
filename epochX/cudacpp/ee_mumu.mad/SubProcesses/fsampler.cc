@@ -49,7 +49,7 @@ namespace mg5amcCpu
     PinnedHostBufferMomenta m_hstMomenta;      // Memory buffers for momenta
     PinnedHostBufferWeights m_hstWeights;      // Memory buffers for sampling weights
 #endif
-    std::unique_ptr<RandomNumberKernelBase> m_prnk; // The appropriate RandomNumberKernel
+    std::unique_ptr<CommonRandomNumberKernel> m_prnk; // The appropriate RandomNumberKernel
     std::unique_ptr<SamplingKernelBase> m_prsk;     // The appropriate SamplingKernel
     // HARDCODED DEFAULTS
     static constexpr fptype energy = 1500; // historical default, Ecms = 1500 GeV = 1.5 TeV (above the Z peak)
