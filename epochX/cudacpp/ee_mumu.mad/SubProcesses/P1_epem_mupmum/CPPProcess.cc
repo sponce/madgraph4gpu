@@ -44,66 +44,45 @@ namespace mg5amcCpu {
 
   // Compute the output wavefunction fo[6] from the input momenta[npar*4*nevt]
   // ASSUMPTIONS: (FMASS == 0) and (PX == PY == 0 and E == +PZ > 0)
-  template<int NSF, int IPAR>
-  // MSF: +1 (particle) or -1 (antiparticle)
-  // IPAR: particle# out of npar
   inline void  ALWAYS_INLINE
   myopzxxx( const fptype momenta[], // input: momenta
             const int nhel,         // input: -1 or +1 (helicity of fermion)
             fptype wavefunctions[] ) {// output: wavefunctions
-    const fptype_sv& pvec3 = KernelAccessMomenta<false>::kernelAccessIp4IparConst( momenta, 3, IPAR );
+    const fptype_sv& pvec3 = KernelAccessMomenta<false>::kernelAccessIp4IparConst( momenta, 3, 0 );
     cxtype_sv* fo =  reinterpret_cast<cxtype_sv*>( wavefunctions );
-    const cxtype_sv csqp0p3{ fpsqrt( 2. * pvec3 ) * (fptype)NSF, fptype_sv{} };
-    fo[0] = { pvec3 * (fptype)NSF, pvec3 * (fptype)NSF };
-    fo[1] =  fo[3] = fo[4] = {};
-    if( nhel == NSF ) {
-      fo[2] = csqp0p3;
-      fo[5] = {};
-    } else {
-      fo[2] = {};
-      fo[5] = csqp0p3;
-    }
+    const fptype_v csqp0p3 = fpsqrt( 2. * pvec3 ) * (fptype)-1;
+    fo[0] = { pvec3 * (fptype)-1, pvec3 * (fptype)-1 };
+    fo[1] = fo[2] = fo[3] = fo[4] = fo[5] = {};
+    ( ( nhel == -1 ) ? fo[2].real() : fo[5].real() ) = csqp0p3;
   }
 
-  template<int NSF, int IPAR>
-  // NSF  : +1 (particle) or -1 (antiparticle)
-  // IPAR : particle# out of npar
   inline void  ALWAYS_INLINE
   myimzxxx( const fptype momenta[], // input: momenta
-          const int nhel,         // input: -1 or +1 (helicity of fermion)
+            const int nhel,         // input: -1 or +1 (helicity of fermion)
             fptype wavefunctions[] ) { // output: wavefunctions
-    const fptype_sv& pvec3 = KernelAccessMomenta<false>::kernelAccessIp4IparConst( momenta, 3, IPAR );
+    const fptype_sv& pvec3 = KernelAccessMomenta<false>::kernelAccessIp4IparConst( momenta, 3, 1 );
     cxtype_sv* fi = reinterpret_cast<cxtype_sv*>( wavefunctions );
-    const cxtype_sv chi = { -(fptype)nhel * fpsqrt( -2. * pvec3 ), fptype_sv{} };
-    fi[0] = { pvec3 * (fptype)NSF, -pvec3 * (fptype)NSF };
-    fi[1] = fi[3] = fi[4] = {};
-    if( nhel == NSF ) {
-      fi[2] = {};
-      fi[5] = chi;
-    } else {
-      fi[2] = chi;
-      fi[5] = {};
-    }
+    const fptype_v chi = -(fptype)nhel * fpsqrt( -2. * pvec3 );
+    fi[0] = { pvec3, -pvec3 };
+    fi[1] = fi[2] = fi[3] = fi[4] = fi[5] = {};
+    ( ( nhel == 1 ) ? fi[5].real() : fi[2].real() ) = chi;
   }
 
-  template<int NSF, int IPAR>
-  // NSF  : +1 (particle) or -1 (antiparticle)
-  // IPAR : particle# out of npar
   inline void ALWAYS_INLINE
   myixzxxx( const fptype momenta[], // input: momenta
-          const int nhel,         // input: -1 or +1 (helicity of fermion)
+            const int nhel,         // input: -1 or +1 (helicity of fermion)
             fptype wavefunctions[] ) { // output: wavefunctions
-    const fptype_sv& pvec0 = KernelAccessMomenta<false>::kernelAccessIp4IparConst( momenta, 0, IPAR );
-    const fptype_sv& pvec1 = KernelAccessMomenta<false>::kernelAccessIp4IparConst( momenta, 1, IPAR );
-    const fptype_sv& pvec2 = KernelAccessMomenta<false>::kernelAccessIp4IparConst( momenta, 2, IPAR );
-    const fptype_sv& pvec3 = KernelAccessMomenta<false>::kernelAccessIp4IparConst( momenta, 3, IPAR );
+    const fptype_sv& pvec0 = KernelAccessMomenta<false>::kernelAccessIp4IparConst( momenta, 0, 2 );
+    const fptype_sv& pvec1 = KernelAccessMomenta<false>::kernelAccessIp4IparConst( momenta, 1, 2 );
+    const fptype_sv& pvec2 = KernelAccessMomenta<false>::kernelAccessIp4IparConst( momenta, 2, 2 );
+    const fptype_sv& pvec3 = KernelAccessMomenta<false>::kernelAccessIp4IparConst( momenta, 3, 2 );
     cxtype_sv* fi = reinterpret_cast<cxtype_sv*>( wavefunctions );
-    fi[0] = cxmake( -pvec0 * (fptype)NSF, -pvec3 * (fptype)NSF ); // AV: BUG FIX
-    fi[1] = cxmake( -pvec1 * (fptype)NSF, -pvec2 * (fptype)NSF ); // AV: BUG FIX
-    const fptype_sv sqp0p3 = fpsqrt( pvec0 + pvec3 ) * (fptype)NSF;
+    fi[0] = { -pvec0 * (fptype)-1, -pvec3 * (fptype)-1 }; // AV: BUG FIX
+    fi[1] = { -pvec1 * (fptype)-1, -pvec2 * (fptype)-1 }; // AV: BUG FIX
+    const fptype_sv sqp0p3 = fpsqrt( pvec0 + pvec3 ) * (fptype)-1;
     const cxtype_sv chi0 = { sqp0p3, fptype_sv{} };
-    const cxtype_sv chi1 = { (fptype)nhel * NSF * pvec1 / sqp0p3, pvec2 / sqp0p3 };
-    if( nhel == NSF ) {
+    const cxtype_sv chi1 = { (fptype)nhel * -1 * pvec1 / sqp0p3, pvec2 / sqp0p3 };
+    if( nhel == -1 ) {
       fi[2] = {};
       fi[3] = {};
       fi[4] = chi0;
@@ -116,24 +95,21 @@ namespace mg5amcCpu {
     }
   }
 
-  template<int NSF, int IPAR>
-  // NSF  : +1 (particle) or -1 (antiparticle)
-  // IPAR : particle# out of npar
   inline void ALWAYS_INLINE
   myoxzxxx( const fptype momenta[], // input: momenta
-          const int nhel,         // input: -1 or +1 (helicity of fermion)
+            const int nhel,         // input: -1 or +1 (helicity of fermion)
             fptype wavefunctions[] ) { // output: wavefunctions
-    const fptype_sv& pvec0 = KernelAccessMomenta<false>::kernelAccessIp4IparConst( momenta, 0, IPAR );
-    const fptype_sv& pvec1 = KernelAccessMomenta<false>::kernelAccessIp4IparConst( momenta, 1, IPAR );
-    const fptype_sv& pvec2 = KernelAccessMomenta<false>::kernelAccessIp4IparConst( momenta, 2, IPAR );
-    const fptype_sv& pvec3 = KernelAccessMomenta<false>::kernelAccessIp4IparConst( momenta, 3, IPAR );
+    const fptype_sv& pvec0 = KernelAccessMomenta<false>::kernelAccessIp4IparConst( momenta, 0, 3 );
+    const fptype_sv& pvec1 = KernelAccessMomenta<false>::kernelAccessIp4IparConst( momenta, 1, 3 );
+    const fptype_sv& pvec2 = KernelAccessMomenta<false>::kernelAccessIp4IparConst( momenta, 2, 3 );
+    const fptype_sv& pvec3 = KernelAccessMomenta<false>::kernelAccessIp4IparConst( momenta, 3, 3 );
     cxtype_sv* fo = reinterpret_cast<cxtype_sv*>( wavefunctions );
-    fo[0] = cxmake( pvec0 * (fptype)NSF, pvec3 * (fptype)NSF );
-    fo[1] = cxmake( pvec1 * (fptype)NSF, pvec2 * (fptype)NSF );
-    const fptype_sv sqp0p3 = fpsqrt( pvec0 + pvec3 ) * (fptype)NSF;
+    fo[0] = { pvec0, pvec3 };
+    fo[1] = { pvec1, pvec2 };
+    const fptype_sv sqp0p3 = fpsqrt( pvec0 + pvec3 );
     const cxtype_sv chi0 = { sqp0p3, fptype_sv{} };
-    const cxtype_sv chi1 = { (fptype)nhel * NSF * pvec1 / sqp0p3, -pvec2 / sqp0p3 };
-    if( nhel == NSF ) {
+    const cxtype_sv chi1 = { (fptype)nhel * pvec1 / sqp0p3, -pvec2 / sqp0p3 };
+    if( nhel == 1 ) {
       fo[2] = chi0;
       fo[3] = chi1;
       fo[4] = {};
@@ -148,11 +124,11 @@ namespace mg5amcCpu {
 
   inline void ALWAYS_INLINE
   myFFV1P0_3( const fptype allF1[],
-            const fptype allF2[],
-            const fptype allCOUP[],
-            const fptype M3,
-            const fptype W3,
-            fptype allV3[] ) {
+              const fptype allF2[],
+              const fptype allCOUP[],
+              const fptype M3,
+              const fptype W3,
+              fptype allV3[] ) {
     const cxtype_sv* F1 = reinterpret_cast<const cxtype_sv*>( allF1 );
     const cxtype_sv* F2 = reinterpret_cast<const cxtype_sv*>( allF2 );
     const cxtype_sv COUP = HostAccessCouplingsFixed::kernelAccessConst( allCOUP );
@@ -179,7 +155,7 @@ namespace mg5amcCpu {
     const cxtype_sv* V3 = reinterpret_cast<const cxtype_sv*>( allV3 );
     const cxtype_sv COUP = HostAccessCouplingsFixed::kernelAccessConst( allCOUP );
     cxtype_sv* vertex = HostAccessAmplitudes::kernelAccess( allvertexes );
-    const cxtype cI = cxmake( 0., 1. );
+    const cxtype cI = { 0., 1. };
     const cxtype_sv TMP0 = ( F1[2] * ( F2[4] * ( V3[2] + V3[5] ) + F2[5] * ( V3[3] + cI * V3[4] ) ) + ( F1[3] * ( F2[4] * ( V3[3] - cI * V3[4] ) + F2[5] * ( V3[2] - V3[5] ) ) + ( F1[4] * ( F2[2] * ( V3[2] - V3[5] ) - F2[3] * ( V3[3] + cI * V3[4] ) ) + F1[5] * ( F2[2] * ( -V3[3] + cI * V3[4] ) + F2[3] * ( V3[2] + V3[5] ) ) ) ) );
     ( *vertex ) = COUP * -cI * TMP0;
   }
@@ -199,7 +175,7 @@ namespace mg5amcCpu {
     const cxtype_sv COUP1 = HostAccessCouplingsFixed::kernelAccessConst( allCOUP1 );
     const cxtype_sv COUP2 = HostAccessCouplingsFixed::kernelAccessConst( allCOUP2 );
     cxtype_sv* vertex = HostAccessAmplitudes::kernelAccess( allvertexes );
-    const cxtype cI = cxmake( 0., 1. );
+    const cxtype cI = { 0., 1. };
     constexpr fptype one( 1. );
     constexpr fptype two( 2. );
     const cxtype_sv TMP1 = ( F1[2] * ( F2[4] * ( V3[2] + V3[5] ) + F2[5] * ( V3[3] + cI * V3[4] ) ) + F1[3] * ( F2[4] * ( V3[3] - cI * V3[4] ) + F2[5] * ( V3[2] - V3[5] ) ) );
@@ -221,7 +197,7 @@ namespace mg5amcCpu {
     const cxtype_sv COUP1 = HostAccessCouplingsFixed::kernelAccessConst( allCOUP1 );
     const cxtype_sv COUP2 = HostAccessCouplingsFixed::kernelAccessConst( allCOUP2 );
     cxtype_sv* V3 = HostAccessWavefunctions::kernelAccess( allV3 );
-    const cxtype cI = cxmake( 0., 1. );
+    const cxtype cI = { 0., 1. };
     const fptype OM3 = ( M3 != 0. ? 1. / ( M3 * M3 ) : 0. );
     V3[0] = +F1[0] + F2[0];
     V3[1] = +F1[1] + F2[1];
@@ -332,10 +308,10 @@ namespace mg5amcCpu {
     // *** DIAGRAM 1 OF 2 ***
 
     // Wavefunction(s) for diagram number 1
-    myopzxxx<-1, 0>( momenta, cHel[ihel][0], w_fp[0] ); // NB: opzxxx only uses pz
-    myimzxxx<+1, 1>( momenta, cHel[ihel][1], w_fp[1] ); // NB: imzxxx only uses pz
-    myixzxxx<-1, 2>( momenta, cHel[ihel][2], w_fp[2] );
-    myoxzxxx<+1, 3>( momenta, cHel[ihel][3], w_fp[3] );
+    myopzxxx( momenta, cHel[ihel][0], w_fp[0] ); // NB: opzxxx only uses pz
+    myimzxxx( momenta, cHel[ihel][1], w_fp[1] ); // NB: imzxxx only uses pz
+    myixzxxx( momenta, cHel[ihel][2], w_fp[2] );
+    myoxzxxx( momenta, cHel[ihel][3], w_fp[3] );
     myFFV1P0_3( w_fp[1], w_fp[0], COUPs[0], 0., 0., w_fp[4] );
 
     // Amplitude(s) for diagram number 1

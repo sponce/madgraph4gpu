@@ -100,11 +100,10 @@ namespace mg5amcCpu
     // NB: ** do NOT implement operator[] to return a value: it does not fail the build (why?) and gives unexpected results! **
     cxtype_ref operator[]( size_t i ) const { return cxtype_ref( m_real[i], m_imag[i] ); }
 #endif
-    const fptype_v& real() const
-    {
-      return m_real;
-    }
+    const fptype_v& real() const { return m_real; }
     const fptype_v& imag() const { return m_imag; }
+    fptype_v& real() { return m_real; }
+    fptype_v& imag() { return m_imag; }
   private:
     fptype_v m_real, m_imag; // RRRRIIII
   };
