@@ -50,7 +50,7 @@ namespace mg5amcCpu
     PinnedHostBufferWeights m_hstWeights;      // Memory buffers for sampling weights
 #endif
     std::unique_ptr<CommonRandomNumberKernel> m_prnk; // The appropriate RandomNumberKernel
-    std::unique_ptr<SamplingKernelBase> m_prsk;     // The appropriate SamplingKernel
+    RamboSamplingKernelHost m_prsk;     // The appropriate SamplingKernel
     // HARDCODED DEFAULTS
     static constexpr fptype energy = 1500; // historical default, Ecms = 1500 GeV = 1.5 TeV (above the Z peak)
   };
@@ -63,7 +63,7 @@ namespace mg5amcCpu
     , m_hstMomenta( nevtF )
     , m_hstWeights( nevtF )
     , m_prnk( new CommonRandomNumberKernel( m_hstRndmom ) )
-    , m_prsk( new RamboSamplingKernelHost( energy, m_hstRndmom, m_hstMomenta, m_hstWeights, nevtF ) )
+    , m_prsk( energy, m_hstRndmom, m_hstMomenta, m_hstWeights, nevtF )
   {
     if( nparF != CPPProcess::npar ) throw std::runtime_error( "Sampler constructor: npar mismatch" );
     if( np4F != CPPProcess::np4 ) throw std::runtime_error( "Sampler constructor: np4 mismatch" );
@@ -90,11 +90,11 @@ namespace mg5amcCpu
     //std::cout << "Got random numbers" << std::endl;
     // === STEP 2 OF 3
     // --- 2a. Fill in momenta of initial state particles on the device
-    m_prsk->getMomentaInitial();
+    m_prsk.getMomentaInitial();
     //std::cout << "Got initial momenta" << std::endl;
     // --- 2b. Fill in momenta of final state particles using the RAMBO algorithm on the device
     // (i.e. map random numbers to final-state particle momenta for each of nevt events)
-    m_prsk->getMomentaFinal();
+    m_prsk.getMomentaFinal();
     //std::cout << "Got final momenta" << std::endl;
     // --- 2c. TransposeC2F
     hst_transposeMomentaC2F( m_hstMomenta.data(), fortranMomenta, m_nevt );

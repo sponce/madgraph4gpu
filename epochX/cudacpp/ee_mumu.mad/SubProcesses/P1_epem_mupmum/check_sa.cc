@@ -306,15 +306,7 @@ main( int argc, char** argv )
   CommonRandomNumberKernel prnk( hstRndmom );
 
   // --- 0c. Create rambo sampling kernel [keep this in 0c for the moment]
-  std::unique_ptr<SamplingKernelBase> prsk;
-  if( rmbsmp == RamboSamplingMode::RamboHost )
-  {
-    prsk.reset( new RamboSamplingKernelHost( energy, hstRndmom, hstMomenta, hstWeights, nevt ) );
-  }
-  else
-  {
-    throw std::logic_error( "RamboDevice is not supported on CPUs" ); // INTERNAL ERROR (no path to this statement)
-  }
+  RamboSamplingKernelHost prsk( energy, hstRndmom, hstMomenta, hstWeights, nevt );
 
   // --- 0c. Create matrix element kernel [keep this in 0c for the moment]
   std::unique_ptr<MatrixElementKernelBase> pmek;
@@ -371,13 +363,13 @@ main( int argc, char** argv )
     // --- 2a. Fill in momenta of initial state particles on the device
     const std::string riniKey = "2a RamboIni";
     timermap.start( riniKey );
-    prsk->getMomentaInitial();
+    prsk.getMomentaInitial();
 
     // --- 2b. Fill in momenta of final state particles using the RAMBO algorithm on the device
     // (i.e. map random numbers to final-state particle momenta for each of nevt events)
     const std::string rfinKey = "2b RamboFin";
     rambtime += timermap.start( rfinKey );
-    prsk->getMomentaFinal();
+    prsk.getMomentaFinal();
 
     // *** STOP THE OLD-STYLE TIMER FOR RAMBO ***
     rambtime += timermap.stop();

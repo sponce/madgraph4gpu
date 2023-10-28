@@ -21,8 +21,11 @@ namespace mg5amcCpu {
                                                     BufferMomenta& momenta,            // output: momenta
                                                     BufferWeights& weights,            // output: weights
                                                     const size_t nevt )
-    : SamplingKernelBase( energy, rndmom, momenta, weights )
-    , NumberOfEvents( nevt ) {
+    : NumberOfEvents( nevt )
+    , m_energy( energy )
+    , m_rndmom( rndmom )
+    , m_momenta( momenta )
+    , m_weights( weights ) {
     if( m_rndmom.isOnDevice() ) throw std::runtime_error( "RamboSamplingKernelHost: rndmom must be a host array" );
     if( m_momenta.isOnDevice() ) throw std::runtime_error( "RamboSamplingKernelHost: momenta must be a host array" );
     if( m_weights.isOnDevice() ) throw std::runtime_error( "RamboSamplingKernelHost: weights must be a host array" );

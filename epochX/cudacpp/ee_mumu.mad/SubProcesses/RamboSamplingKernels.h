@@ -8,31 +8,22 @@
 #include "MemoryBuffers.h"
 
 namespace mg5amcCpu {
-  // A base class encapsulating phase space sampling on a CPU host or on a GPU device
-  class SamplingKernelBase { //: virtual public ISamplingKernel
-  protected:
 
+  // A class encapsulating RAMBO phase space sampling on a CPU host
+  struct RamboSamplingKernelHost final : NumberOfEvents {
     // Constructor from existing input and output buffers
-    SamplingKernelBase( const fptype energy,               // input: energy
-                        const BufferRndNumMomenta& rndmom, // input: random numbers in [0,1]
-                        BufferMomenta& momenta,            // output: momenta
-                        BufferWeights& weights )           // output: weights
-      : m_energy( energy )
-      , m_rndmom( rndmom )
-      , m_momenta( momenta )
-      , m_weights( weights ) {}
-
-  public:
-    virtual ~SamplingKernelBase() {}
-
+    RamboSamplingKernelHost( const fptype energy,               // input: energy
+                             const BufferRndNumMomenta& rndmom, // input: random numbers in [0,1]
+                             BufferMomenta& momenta,            // output: momenta
+                             BufferWeights& weights,            // output: weights
+                             const size_t nevt );
     // Get momenta of initial state particles
-    virtual void getMomentaInitial() = 0;
+    void getMomentaInitial();
     // Get momenta of final state particles and weights
-    virtual void getMomentaFinal() = 0;
+    void getMomentaFinal();
     // Is this a host or device kernel?
-    virtual bool isOnDevice() const = 0;
-
-  protected:
+    bool isOnDevice() const { return false; }
+    
     // The energy
     const fptype m_energy;
     // The buffer for the input random numbers
@@ -41,22 +32,6 @@ namespace mg5amcCpu {
     BufferMomenta& m_momenta;
     // The buffer for the output weights
     BufferWeights& m_weights;
-  };
-
-  // A class encapsulating RAMBO phase space sampling on a CPU host
-  struct RamboSamplingKernelHost final : SamplingKernelBase, NumberOfEvents {
-    // Constructor from existing input and output buffers
-    RamboSamplingKernelHost( const fptype energy,               // input: energy
-                             const BufferRndNumMomenta& rndmom, // input: random numbers in [0,1]
-                             BufferMomenta& momenta,            // output: momenta
-                             BufferWeights& weights,            // output: weights
-                             const size_t nevt );
-    // Get momenta of initial state particles
-    void getMomentaInitial() override final;
-    // Get momenta of final state particles and weights
-    void getMomentaFinal() override final;
-    // Is this a host or device kernel?
-    bool isOnDevice() const override final { return false; }
   };
 
 }
