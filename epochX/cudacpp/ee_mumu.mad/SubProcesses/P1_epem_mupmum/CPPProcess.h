@@ -15,37 +15,21 @@
 #pragma once
 
 #include "mgOnGpuConfig.h"
-
 #include "mgOnGpuVectors.h"
-
 #include "Parameters_sm.h"
 
 #include <vector>
 
 namespace mg5amcCpu {
-  //==========================================================================
-  // A class for calculating the matrix elements for
-  // Process: e+ e- > mu+ mu- WEIGHTED<=4 @1
-  //--------------------------------------------------------------------------
-
   class CPPProcess {
   public: /* clang-format off */
-
-    // Constructor (from command line arguments)
-    CPPProcess( bool verbose = false, bool debug = false );
-
-    // Destructor
+    CPPProcess( bool verbose = false );
     virtual ~CPPProcess();
 
     // Initialize process (read model parameters from file)
     virtual void initProc( const std::string& param_card_name );
 
-    // Accessors (unused so far: add four of them only to fix a clang build warning)
-    //bool verbose() const { return m_verbose; }
-    bool debug() const { return m_debug; }
-
   public:
-
     // Process-independent compile-time constants
     static constexpr int np4 = 4; // dimensions of 4-momenta (E,px,py,pz)
     static constexpr int nw6 = 6; // dimensions of each wavefunction (HELAS KEK 91-11): e.g. 6 for e+ e- -> mu+ mu- (fermions and vectors)
@@ -60,7 +44,6 @@ namespace mg5amcCpu {
 
     // Command line arguments (constructor)
     bool m_verbose;
-    bool m_debug;
 
     // Physics model parameters to be read from file (initProc function)
     Parameters_sm* m_pars;

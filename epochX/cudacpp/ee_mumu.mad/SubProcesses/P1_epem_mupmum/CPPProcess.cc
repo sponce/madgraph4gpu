@@ -16,8 +16,6 @@
 
 #include "mgOnGpuConfig.h"
 
-#include "coloramps.h"
-
 #include <algorithm>
 #include <array>
 #include <cstring>
@@ -36,8 +34,8 @@ namespace mg5amcCpu {
 
   template<int IP4, int IPAR>
   inline fptype_sv ALWAYS_INLINE
-  kernelAccessIp4IparConst( const fptype* buffer ) {
-    return *reinterpret_cast<const fptype_sv*>( &buffer[IPAR * CPPProcess::np4 * neppV + IP4 * neppV] );
+  kernelAccessIp4IparConst( const fptype* momenta ) {
+    return *reinterpret_cast<const fptype_sv*>( &momenta[IPAR * CPPProcess::np4 * neppV + IP4 * neppV] );
   }
 
   // Compute the output wavefunction fo[6] from the input momenta[npar*4*nevt]
@@ -345,9 +343,8 @@ namespace mg5amcCpu {
     return;
   }
 
-  CPPProcess::CPPProcess( bool verbose,
-                          bool debug )
-    : m_verbose( verbose ), m_debug( debug ), m_pars( 0 ), m_masses() {
+  CPPProcess::CPPProcess( bool verbose )
+    : m_verbose( verbose ), m_pars( 0 ), m_masses() {
     // Helicities for the process [NB do keep 'static' for this constexpr array, see issue #283]
     // *** NB There is no automatic check yet that these are in the same order as Fortran! #569 ***
     static constexpr short tHel[ncomb][npar] = {
@@ -494,7 +491,7 @@ namespace mg5amcCpu {
     // *** START OF PART 1b - C++ (loop on event pages)
     const int npagV = nevt / neppV;
 #ifdef _OPENMP
-#pragma omp parallel for default( none ) shared( allcouplings, allMEs, allmomenta, allrndcol, allrndhel, allselcol, allselhel, cGoodHel, cNGoodHel, npagV, allDenominators, allNumerators, channelId, mgOnGpu::icolamp )
+#pragma omp parallel for default( none ) shared( allcouplings, allMEs, allmomenta, allrndcol, allrndhel, allselcol, allselhel, cGoodHel, cNGoodHel, npagV, allDenominators, allNumerators, channelId )
 #endif // _OPENMP
     for( int ipagV = 0; ipagV < npagV; ++ipagV ) {
       // Running sum of partial amplitudes squared for event by event color selection (#402)
@@ -521,7 +518,7 @@ namespace mg5amcCpu {
       const int channelIdC = channelId - 1; // coloramps.h uses the C array indexing starting at 0
       // Event-by-event random choice of color #402
       fptype_sv targetamp{ 0 };
-      if( mgOnGpu::icolamp[channelIdC][0] ) targetamp += jamp2_sv;
+      targetamp += jamp2_sv;
       for( int ieppV = 0; ieppV < neppV; ++ieppV ) {
         const int ievt = ievt0 + ieppV;
         const bool okcol = allrndcol[ievt] < ( targetamp[ieppV] / targetamp[ieppV] );
