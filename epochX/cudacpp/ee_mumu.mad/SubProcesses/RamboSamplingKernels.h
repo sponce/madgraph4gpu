@@ -25,11 +25,11 @@ namespace mg5amcCpu {
     // The energy
     const fptype m_energy;
     // The buffer for the input random numbers
-    const BufferRndNumMomenta& m_rndmom;
+    alignas(32) const BufferRndNumMomenta& m_rndmom;
     // The buffer for the output momenta
-    BufferMomenta& m_momenta;
+    alignas(32) BufferMomenta& m_momenta;
     // The buffer for the output weights
-    BufferWeights& m_weights;
+    alignas(32) BufferWeights& m_weights;
   };
 
 }

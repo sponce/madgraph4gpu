@@ -61,10 +61,9 @@ namespace mg5amcCpu {
 
   void RamboSamplingKernelHost::getMomentaFinal() {
     const fptype twopi = 8. * atan( 1. );
-    const fptype po2log = log( twopi / 4. );
+    
     for( size_t ievt = 0; ievt < nevt(); ievt+=neppV ) {
       for( size_t ieppM = 0; ieppM < neppV; ++ieppM ) {
-
         // generate n massless momenta in infinite phase space
         const fptype* rndmom =  &( m_rndmom.data()[ievt * nparf * np4 + ieppM] );
         fptype q[nparf][np4];
@@ -104,21 +103,13 @@ namespace mg5amcCpu {
           momenta[(iparf + npari) * np4 * neppV] = x0 * ( g * q[iparf][0] + bq );
         }
 
-        // calculate weight (NB return log of weight)
-        fptype& wt = m_weights.data()[ievt+ieppM];
-        wt = po2log;
-
-        // issue warnings if weight is too small or too large
-        static int iwarn[5] = { 0, 0, 0, 0, 0 };
-        if( wt < -180. ) {
-          if( iwarn[0] <= 5 ) std::cout << "Too small wt, risk for underflow: " << wt << std::endl;
-          iwarn[0] = iwarn[0] + 1;
-        }
-        if( wt > 174. ) {
-          if( iwarn[1] <= 5 ) std::cout << "Too large wt, risk for overflow: " << wt << std::endl;
-          iwarn[1] = iwarn[1] + 1;
-        }
       }
+    }
+
+    // probably auto vectorized
+    const fptype po2log = log( twopi / 4. );
+    for( size_t n = 0; n < nevt(); n++ ) {
+      m_weights.data()[n] = po2log;
     }
   }
 }
