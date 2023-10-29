@@ -69,32 +69,15 @@ namespace mg5amcCpu {
     // output weight
     fptype& wt = wgts[0];
 
-    // AV special case nparf==1 (issue #358)
-    if constexpr( nparf == 1 ) {
-      static bool first = true;
-      if( first ) {
-        printf( "WARNING! Rambo called with 1 final particle: random numbers will be ignored\n" );
-        first = false;
-      }
-      const int iparf = 0;
-      for( int i4 = 0; i4 < np4; i4++ ) {
-        kernelAccessIp4Ipar( momenta, i4, iparf + npari ) = 0;
-        for( int ipari = 0; ipari < npari; ipari++ ) {
-          kernelAccessIp4Ipar( momenta, i4, iparf + npari ) += kernelAccessIp4Ipar( momenta, i4, ipari );
-        }
-      }
-      wt = 1;
-      return;
-    }
-
     // initialization step: factorials for the phase space weight
     const fptype twopi = 8. * atan( 1. );
     const fptype po2log = log( twopi / 4. );
     fptype z[nparf];
-    if constexpr( nparf > 1 ) // avoid build warning on clang (related to #358)
-      z[1] = po2log;
-    for( int kpar = 2; kpar < nparf; kpar++ ) z[kpar] = z[kpar - 1] + po2log - 2. * log( fptype( kpar - 1 ) );
-    for( int kpar = 2; kpar < nparf; kpar++ ) z[kpar] = ( z[kpar] - log( fptype( kpar ) ) );
+    z[1] = po2log;
+    for( int kpar = 2; kpar < nparf; kpar++ )
+      z[kpar] = z[kpar - 1] + po2log - 2. * log( fptype( kpar - 1 ) );
+    for( int kpar = 2; kpar < nparf; kpar++ )
+      z[kpar] = ( z[kpar] - log( fptype( kpar ) ) );
 
     // generate n massless momenta in infinite phase space
     fptype q[nparf][np4];
