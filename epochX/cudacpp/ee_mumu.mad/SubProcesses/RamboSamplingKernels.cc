@@ -15,6 +15,8 @@
 #include <sstream>
 #include <cstring>
 
+#include <immintrin.h>
+
 namespace mg5amcCpu {
 
   RamboSamplingKernelHost::RamboSamplingKernelHost( const fptype energy,               // input: energy
@@ -59,55 +61,68 @@ namespace mg5amcCpu {
     }
   }
 
+  fptype_v sqrt_v(fptype_v in) {
+    return fptype_v{ sqrt(in[0]), sqrt(in[1]), sqrt(in[2]), sqrt(in[3]) };
+  }
+  fptype_v log_v(fptype_v in) {
+    return fptype_v{ log(in[0]), log(in[1]), log(in[2]), log(in[3]) };
+  }
+  std::pair<fptype_v, fptype_v> sincos_v(fptype_v in) {
+    return {
+      fptype_v{ sin(in[0]), sin(in[1]), sin(in[2]), sin(in[3]) },
+      fptype_v{ cos(in[0]), cos(in[1]), cos(in[2]), cos(in[3]) }
+    };
+  }
+
   void RamboSamplingKernelHost::getMomentaFinal() {
     const fptype twopi = 8. * atan( 1. );
     
     for( size_t ievt = 0; ievt < nevt(); ievt+=neppV ) {
-      for( size_t ieppM = 0; ieppM < neppV; ++ieppM ) {
-        // generate n massless momenta in infinite phase space
-        const fptype* rndmom =  &( m_rndmom.data()[ievt * nparf * np4 + ieppM] );
-        fptype q[nparf][np4];
-        for( int iparf = 0; iparf < nparf; iparf++ ) {
-          const fptype r1 = rndmom[(iparf * 4    ) * 8];
-          const fptype r2 = rndmom[(iparf * 4 + 1) * 8];
-          const fptype r3 = rndmom[(iparf * 4 + 2) * 8];
-          const fptype r4 = rndmom[(iparf * 4 + 3) * 8];
-          const fptype c = 2. * r1 - 1.;
-          const fptype s = sqrt( 1. - c * c );
-          const fptype f = twopi * r2;
-          q[iparf][0] = -log( r3 * r4 );
-          q[iparf][3] = q[iparf][0] * c;
-          q[iparf][2] = q[iparf][0] * s * cos( f );
-          q[iparf][1] = q[iparf][0] * s * sin( f );
-        }
+      const fptype_v* rndmom = reinterpret_cast<const fptype_v*>(&( m_rndmom.data()[ievt * nparf * np4] ));
+      fptype_v* momenta = reinterpret_cast<fptype_v*>(&( m_momenta.data()[ievt * npar * np4] ));
 
-        // calculate the parameters of the conformal transformation
-        fptype r[np4] = {0., 0., 0., 0.};
-        for( int iparf = 0; iparf < nparf; iparf++ ) {
-          for( int i4 = 0; i4 < np4; i4++ ) r[i4] = r[i4] + q[iparf][i4];
-        }
-        fptype b[np4 - 1];
-        const fptype rmas = sqrt( pow( r[0], 2 ) - pow( r[3], 2 ) - pow( r[2], 2 ) - pow( r[1], 2 ) );
-        for( int i4 = 1; i4 < np4; i4++ ) b[i4 - 1] = -r[i4] / rmas;
-        const fptype g = r[0] / rmas;
-        const fptype a = 1. / ( 1. + g );
-        const fptype x0 = m_energy / rmas;
-
-        // transform the q's conformally into the p's (i.e. the 'momenta')
-        fptype* momenta = &( m_momenta.data()[ievt * npar * np4 + ieppM] );
-        for( int iparf = 0; iparf < nparf; iparf++ ) {
-          fptype bq = b[0] * q[iparf][1] + b[1] * q[iparf][2] + b[2] * q[iparf][3];
-          for( int i4 = 1; i4 < np4; i4++ ) {
-            momenta[(iparf + npari) * np4 * neppV + i4 * neppV] = x0 * ( q[iparf][i4] + b[i4 - 1] * ( q[iparf][0] + a * bq ) );
-          }
-          momenta[(iparf + npari) * np4 * neppV] = x0 * ( g * q[iparf][0] + bq );
-        }
-
+      // generate n massless momenta in infinite phase space
+      fptype_v q[nparf][np4];
+      for( int iparf = 0; iparf < nparf; iparf++ ) {
+        const fptype_v r1 = rndmom[(iparf * 4    ) * 8 / neppV];
+        const fptype_v r2 = rndmom[(iparf * 4 + 1) * 8 / neppV];
+        const fptype_v r3 = rndmom[(iparf * 4 + 2) * 8 / neppV];
+        const fptype_v r4 = rndmom[(iparf * 4 + 3) * 8 / neppV];
+        const fptype_v c = 2. * r1 - 1.;
+        const fptype_v s = sqrt_v( 1. - c * c );
+        const fptype_v f = twopi * r2;
+        q[iparf][0] = -log_v( r3 * r4 );
+        q[iparf][3] = q[iparf][0] * c;
+        auto [sin, cos] = sincos_v(f);
+        q[iparf][2] = q[iparf][0] * s * cos;
+        q[iparf][1] = q[iparf][0] * s * sin;
       }
+
+      // calculate the parameters of the conformal transformation
+      fptype_v r[np4] = {0., 0., 0., 0.};
+      for( int iparf = 0; iparf < nparf; iparf++ ) {
+        for( int i4 = 0; i4 < np4; i4++ ) r[i4] = r[i4] + q[iparf][i4];
+      }
+      fptype_v b[np4 - 1];
+      const fptype_v rmas = sqrt_v( r[0]*r[0] - r[3]*r[3] - r[2]*r[2] - r[1]*r[1] );
+      for( int i4 = 1; i4 < np4; i4++ ) b[i4 - 1] = -r[i4] / rmas;
+      const fptype_v g = r[0] / rmas;
+      const fptype_v a = 1. / ( 1. + g );
+      const fptype_v x0 = m_energy / rmas;
+
+      // transform the q's conformally into the p's (i.e. the 'momenta')
+      for( int iparf = 0; iparf < nparf; iparf++ ) {
+        fptype_v bq = b[0] * q[iparf][1] + b[1] * q[iparf][2] + b[2] * q[iparf][3];
+        for( int i4 = 1; i4 < np4; i4++ ) {
+          momenta[(iparf + npari) * np4 + i4] = x0 * ( q[iparf][i4] + b[i4 - 1] * ( q[iparf][0] + a * bq ) );
+        }
+        momenta[(iparf + npari) * np4] = x0 * ( g * q[iparf][0] + bq );
+      }
+
     }
 
     // probably auto vectorized
-    const fptype po2log = log( twopi / 4. );
+    const fptype po2log = std::log( twopi / 4. );
     for( size_t n = 0; n < nevt(); n++ ) {
       m_weights.data()[n] = po2log;
     }
