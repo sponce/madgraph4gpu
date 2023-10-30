@@ -43,13 +43,7 @@ namespace mg5amcCpu
   //--------------------------------------------------------------------------
 }
 
-//============================================================================
-
-#ifndef __CUDACC__
-namespace mg5amcCpu
-{
-
-  //--------------------------------------------------------------------------
+namespace mg5amcCpu {
 
   BridgeKernelHost::BridgeKernelHost( const BufferMomenta& momenta,         // input: momenta
                                       const BufferGs& gs,                   // input: Gs for alphaS
@@ -76,79 +70,18 @@ namespace mg5amcCpu
   int BridgeKernelHost::computeGoodHelicities()
   {
     constexpr bool goodHelOnly = true;
-    constexpr unsigned int channelId = 0; // disable multi-channel for helicity filtering
-    m_bridge.cpu_sequence( m_fortranMomenta.data(), m_gs.data(), m_rndhel.data(), m_rndcol.data(), channelId, m_matrixElements.data(), m_selhel.data(), m_selcol.data(), goodHelOnly );
+    m_bridge.cpu_sequence( m_fortranMomenta.data(), m_gs.data(), m_rndhel.data(), m_rndcol.data(), m_matrixElements.data(), m_selhel.data(), m_selcol.data(), goodHelOnly );
     return m_bridge.nGoodHel();
   }
 
   //--------------------------------------------------------------------------
 
-  void BridgeKernelHost::computeMatrixElements( const unsigned int channelId )
+  void BridgeKernelHost::computeMatrixElements()
   {
     constexpr bool goodHelOnly = false;
-    m_bridge.cpu_sequence( m_fortranMomenta.data(), m_gs.data(), m_rndhel.data(), m_rndcol.data(), channelId, m_matrixElements.data(), m_selhel.data(), m_selcol.data(), goodHelOnly );
+    m_bridge.cpu_sequence( m_fortranMomenta.data(), m_gs.data(), m_rndhel.data(), m_rndcol.data(), m_matrixElements.data(), m_selhel.data(), m_selcol.data(), goodHelOnly );
   }
 
   //--------------------------------------------------------------------------
 
 }
-#endif
-
-//============================================================================
-
-#ifdef __CUDACC__
-namespace mg5amcGpu
-{
-
-  //--------------------------------------------------------------------------
-
-  BridgeKernelDevice::BridgeKernelDevice( const BufferMomenta& momenta,         // input: momenta
-                                          const BufferGs& gs,                   // input: Gs for alphaS
-                                          const BufferRndNumHelicity& rndhel,   // input: random numbers for helicity selection
-                                          const BufferRndNumColor& rndcol,      // input: random numbers for color selection
-                                          BufferMatrixElements& matrixElements, // output: matrix elements
-                                          BufferSelectedHelicity& selhel,       // output: helicity selection
-                                          BufferSelectedColor& selcol,          // output: color selection
-                                          const size_t gpublocks,
-                                          const size_t gputhreads )
-    : BridgeKernelBase( momenta, gs, rndhel, rndcol, matrixElements, selhel, selcol, gpublocks * gputhreads )
-    , m_fortranMomenta( nevt() )
-    , m_gpublocks( gpublocks )
-    , m_gputhreads( gputhreads )
-  {
-    if( m_gpublocks == 0 ) throw std::runtime_error( "BridgeKernelDevice: gpublocks must be > 0" );
-    if( m_gputhreads == 0 ) throw std::runtime_error( "BridgeKernelDevice: gputhreads must be > 0" );
-    m_bridge.set_gpugrid( gpublocks, gputhreads );
-  }
-
-  //--------------------------------------------------------------------------
-
-  void BridgeKernelDevice::transposeInputMomentaC2F()
-  {
-    hst_transposeMomentaC2F( m_momenta.data(), m_fortranMomenta.data(), nevt() );
-  }
-
-  //--------------------------------------------------------------------------
-
-  int BridgeKernelDevice::computeGoodHelicities()
-  {
-    constexpr bool goodHelOnly = true;
-    constexpr unsigned int channelId = 0; // disable multi-channel for helicity filtering
-    m_bridge.gpu_sequence( m_fortranMomenta.data(), m_gs.data(), m_rndhel.data(), m_rndcol.data(), channelId, m_matrixElements.data(), m_selhel.data(), m_selcol.data(), goodHelOnly );
-    return m_bridge.nGoodHel();
-  }
-
-  //--------------------------------------------------------------------------
-
-  void BridgeKernelDevice::computeMatrixElements( const unsigned int channelId )
-  {
-    constexpr bool goodHelOnly = false;
-    m_bridge.gpu_sequence( m_fortranMomenta.data(), m_gs.data(), m_rndhel.data(), m_rndcol.data(), channelId, m_matrixElements.data(), m_selhel.data(), m_selcol.data(), goodHelOnly );
-  }
-
-  //--------------------------------------------------------------------------
-
-}
-#endif
-
-//============================================================================

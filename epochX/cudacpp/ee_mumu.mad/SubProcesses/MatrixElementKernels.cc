@@ -68,10 +68,10 @@ namespace mg5amcCpu
 
   //--------------------------------------------------------------------------
 
-  void MatrixElementKernelHost::computeMatrixElements( const unsigned int channelId )
+  void MatrixElementKernelHost::computeMatrixElements()
   {
     computeDependentCouplings( m_gs.data(), m_couplings.data(), m_gs.size() );
-    sigmaKin( m_momenta.data(), m_couplings.data(), m_rndhel.data(), m_rndcol.data(), m_matrixElements.data(), channelId, m_numerators.data(), m_denominators.data(), m_selhel.data(), m_selcol.data(), nevt() );
+    sigmaKin( m_momenta.data(), m_couplings.data(), m_rndhel.data(), m_rndcol.data(), m_matrixElements.data(), m_numerators.data(), m_denominators.data(), m_selhel.data(), m_selcol.data(), nevt() );
   }
 
   //--------------------------------------------------------------------------

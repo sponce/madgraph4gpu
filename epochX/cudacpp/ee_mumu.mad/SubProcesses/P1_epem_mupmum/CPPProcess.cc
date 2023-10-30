@@ -122,15 +122,13 @@ namespace mg5amcCpu {
   myFFV1P0_3( const cxtype_sv F1[],
               const cxtype_sv F2[],
               const fptype allCOUP[],
-              const fptype M3,
-              const fptype W3,
               cxtype_sv V3[] ) {
     const cxtype_sv COUP = cxtype_sv{ fptype_v{allCOUP[0]}, fptype_v{allCOUP[1]} };
     const cxtype cI = { 0., 1. };
     V3[0] = +F1[0] + F2[0];
     V3[1] = +F1[1] + F2[1];
     const fptype_sv P3[4] = { -cxreal( V3[0] ), -cxreal( V3[1] ), -cximag( V3[1] ), -cximag( V3[0] ) };
-    const cxtype_sv denom = COUP / ( ( P3[0] * P3[0] ) - ( P3[1] * P3[1] ) - ( P3[2] * P3[2] ) - ( P3[3] * P3[3] ) - M3 * ( M3 - cI * W3 ) );
+    const cxtype_sv denom = COUP / ( ( P3[0] * P3[0] ) - ( P3[1] * P3[1] ) - ( P3[2] * P3[2] ) - ( P3[3] * P3[3] ) );
     V3[2] = denom * ( -cI ) * ( F1[2] * F2[4] + F1[3] * F2[5] + F1[4] * F2[2] + F1[5] * F2[3] );
     V3[3] = denom * ( -cI ) * ( -F1[2] * F2[5] - F1[3] * F2[4] + F1[4] * F2[3] + F1[5] * F2[2] );
     V3[4] = denom * ( -cI ) * ( -cI * ( F1[2] * F2[5] + F1[5] * F2[2] ) + cI * ( F1[3] * F2[4] + F1[4] * F2[3] ) );
@@ -221,7 +219,6 @@ namespace mg5amcCpu {
                            const fptype* allmomenta,      // input: momenta[nevt*npar*4]
                            const fptype* allcouplings,    // input: couplings[nevt*ndcoup*2]
                            fptype* allMEs,                // output: allMEs[nevt], |M|^2 running_sum_over_helicities
-                           const unsigned int channelId,  // input: multichannel channel id (1 to #diagrams); 0 to disable channel enhancement
                            fptype* allNumerators,         // output: multichannel numerators[nevt], running_sum_over_helicities
                            fptype* allDenominators,       // output: multichannel denominators[nevt], running_sum_over_helicities
                            fptype_sv* jamp2_sv            // output: jamp2[1][1][neppV] for color choice (nullptr if disabled)
@@ -240,7 +237,8 @@ namespace mg5amcCpu {
     cxtype_sv amp_sv;      // invariant amplitude for one given Feynman diagram
 
     // Local variables for the given C++ event page (ipagV)
-    // [jamp: sum (for one event or event page) of the invariant amplitudes for all Feynman diagrams in a given color combination]
+    // [jamp: sum (for one event or event page) of the invariant amplitudes for
+    // all Feynman diagrams in a given color combination]
     cxtype_sv jamp_sv{}; // all zeros
 
     // Calculate wavefunctions and amplitudes for all diagrams in all processes
@@ -282,12 +280,10 @@ namespace mg5amcCpu {
     myimzxxx( momenta, cHel[ihel][1], w_sv[1] ); // NB: imzxxx only uses pz
     myixzxxx( momenta, cHel[ihel][2], w_sv[2] );
     myoxzxxx( momenta, cHel[ihel][3], w_sv[3] );
-    myFFV1P0_3( w_sv[1], w_sv[0], COUPs[0], 0., 0., w_sv[4] );
+    myFFV1P0_3( w_sv[1], w_sv[0], COUPs[0], w_sv[4] );
 
     // Amplitude(s) for diagram number 1
     myFFV1_0( w_sv[2], w_sv[3], w_sv[4], COUPs[0], amp_sv );
-    if( channelId == 1 ) numerators_sv += cxabs2( amp_sv );
-    if( channelId != 0 ) denominators_sv += cxabs2( amp_sv );
     jamp_sv -= amp_sv;
 
     // *** DIAGRAM 2 OF 2 ***
@@ -296,8 +292,6 @@ namespace mg5amcCpu {
     myFFV2_4_3( w_sv[1], w_sv[0], COUPs[1], COUPs[2], cIPD[0], cIPD[1], w_sv[4] );
     // Amplitude(s) for diagram number 2
     myFFV2_4_0( w_sv[2], w_sv[3], w_sv[4], COUPs[1], COUPs[2], amp_sv );
-    if( channelId == 2 ) numerators_sv += cxabs2( amp_sv );
-    if( channelId != 0 ) denominators_sv += cxabs2( amp_sv );
     jamp_sv -= amp_sv;
 
     // *** COLOR CHOICE BELOW ***
@@ -425,8 +419,7 @@ namespace mg5amcCpu {
           allMEs[ievt] = 0;
         }
         constexpr fptype_sv* jamp2_sv = nullptr; // no need for color selection during helicity filtering
-        constexpr unsigned int channelId = 0; // disable single-diagram channel enhancement
-        calculate_wavefunctions( ihel, allmomenta, allcouplings, allMEs, channelId, allNumerators, allDenominators, jamp2_sv, ievt00 );
+        calculate_wavefunctions( ihel, allmomenta, allcouplings, allMEs, allNumerators, allDenominators, jamp2_sv, ievt00 );
         for( int ieppV = 0; ieppV < neppV; ++ieppV ) {
           const int ievt = ievt00 + ieppV;
           if( allMEs[ievt] != 0 ) {// NEW IMPLEMENTATION OF GETGOODHEL (#630): COMPARE EACH HELICITY CONTRIBUTION TO 0
@@ -460,7 +453,6 @@ namespace mg5amcCpu {
             const fptype* allrndhel,       // input: random numbers[nevt] for helicity selection
             const fptype* allrndcol,       // input: random numbers[nevt] for color selection
             fptype* allMEs,                // output: allMEs[nevt], |M|^2 final_avg_over_helicities
-            const unsigned int channelId,  // input: multichannel channel id (1 to #diagrams); 0 to disable channel enhancement
             fptype* allNumerators,         // output: multichannel numerators[nevt], running_sum_over_helicities
             fptype* allDenominators,       // output: multichannel denominators[nevt], running_sum_over_helicities
             int* allselhel,                // output: helicity selection[nevt]
@@ -482,7 +474,7 @@ namespace mg5amcCpu {
       fptype_sv jamp2_sv = { 0 };
       fptype_sv MEs_ighel[CPPProcess::ncomb] = { 0 };    // sum of MEs for all good helicities up to ighel (for the first - and/or only - neppV page)
       for( int ighel = 0; ighel < cNGoodHel; ighel++ ) {
-        calculate_wavefunctions( cGoodHel[ighel], allmomenta, allcouplings, allMEs, channelId, allNumerators, allDenominators, &jamp2_sv, ievt0 );
+        calculate_wavefunctions( cGoodHel[ighel], allmomenta, allcouplings, allMEs, allNumerators, allDenominators, &jamp2_sv, ievt0 );
         MEs_ighel[ighel] = *reinterpret_cast<fptype_v*>( &( allMEs[ievt0] ) );
       }
       // Event-by-event random choice of helicity #403
@@ -497,7 +489,6 @@ namespace mg5amcCpu {
           }
         }
       }
-      const int channelIdC = channelId - 1; // coloramps.h uses the C array indexing starting at 0
       // Event-by-event random choice of color #402
       fptype_sv targetamp{ 0 };
       targetamp += jamp2_sv;
@@ -519,11 +510,6 @@ namespace mg5amcCpu {
     for( int ievt0 = 0; ievt0 < nevt; ievt0 += neppV ) {
       fptype_sv& MEs_sv = *reinterpret_cast<fptype_v*>( &( allMEs[ievt0] ) );
       MEs_sv /= 4;
-      if( channelId > 0 ) {
-        fptype_sv& numerators_sv = *reinterpret_cast<fptype_v*>( &( allNumerators[ievt0] ) );
-        fptype_sv& denominators_sv = *reinterpret_cast<fptype_v*>( &( allDenominators[ievt0] ) );
-        MEs_sv *= numerators_sv / denominators_sv;
-      }
     }
   }
 

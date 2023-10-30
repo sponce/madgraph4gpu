@@ -94,7 +94,6 @@ namespace mg5amcCpu {
                        const FORTRANFPTYPE* gs,
                        const FORTRANFPTYPE* rndhel,
                        const FORTRANFPTYPE* rndcol,
-                       const unsigned int channelId,
                        FORTRANFPTYPE* mes,
                        int* selhel,
                        int* selcol,
@@ -168,7 +167,6 @@ namespace mg5amcCpu {
                                             const FORTRANFPTYPE* gs,
                                             const FORTRANFPTYPE* rndhel,
                                             const FORTRANFPTYPE* rndcol,
-                                            const unsigned int channelId,
                                             FORTRANFPTYPE* mes,
                                             int* selhel,
                                             int* selcol,
@@ -193,7 +191,7 @@ namespace mg5amcCpu {
       if( m_nGoodHel < 0 ) throw std::runtime_error( "Bridge cpu_sequence: computeGoodHelicities returned nGoodHel<0" );
     }
     if( goodHelOnly ) return;
-    m_pmek.computeMatrixElements( channelId );
+    m_pmek.computeMatrixElements();
     flagAbnormalMEs( m_hstMEs.data(), m_nevt );
     if constexpr( std::is_same_v<FORTRANFPTYPE, fptype> )
     {

@@ -45,7 +45,7 @@ namespace mg5amcCpu
     virtual int computeGoodHelicities() = 0;
 
     // Compute matrix elements
-    virtual void computeMatrixElements( const unsigned int channelId ) = 0;
+    virtual void computeMatrixElements() = 0;
 
     // Is this a host or device kernel?
     virtual bool isOnDevice() const = 0;
@@ -98,7 +98,7 @@ namespace mg5amcCpu
     int computeGoodHelicities() override final;
 
     // Compute matrix elements
-    void computeMatrixElements( const unsigned int channelId ) override final;
+    void computeMatrixElements() override final;
 
     // Is this a host or device kernel?
     bool isOnDevice() const override final { return false; }
