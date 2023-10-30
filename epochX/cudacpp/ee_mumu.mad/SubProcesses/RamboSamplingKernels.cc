@@ -60,20 +60,20 @@ namespace mg5amcCpu {
     }
   }
 
-  inline fptype_v __attribute__( ( always_inline ) ) sqrt_v(fptype_v in) {
-    return fptype_v{ sqrt(in[0]), sqrt(in[1]), sqrt(in[2]), sqrt(in[3]) };
-  }
   inline fptype_v __attribute__( ( always_inline ) ) rsqrt_v(fptype_v in) {
-    return 1./sqrt_v(in);
+    return _mm256_mask_rsqrt14_pd(in, 0xff, in);
+  }
+  inline fptype_v __attribute__( ( always_inline ) ) sqrt_v(fptype_v in) {
+    return 1./rsqrt_v(in);
   }
   inline fptype_v __attribute__( ( always_inline ) ) log_v(fptype_v in) {
     return fptype_v{ log(in[0]), log(in[1]), log(in[2]), log(in[3]) };
   }
-  inline std::pair<fptype_v, fptype_v> __attribute__( ( always_inline ) ) sincos_v(fptype_v in) {
-    return {
-      fptype_v{ sin(in[0]), sin(in[1]), sin(in[2]), sin(in[3]) },
-      fptype_v{ cos(in[0]), cos(in[1]), cos(in[2]), cos(in[3]) }
-    };
+  inline fptype_v __attribute__( ( always_inline ) ) sin_v(fptype_v in) {
+    return fptype_v{ sin(in[0]), sin(in[1]), sin(in[2]), sin(in[3]) };
+  }
+  inline fptype_v __attribute__( ( always_inline ) ) sin2cos_v(fptype_v s) {
+    return _mm256_sqrt_pd(1.-s*s);
   }
 
   void RamboSamplingKernelHost::getMomentaFinal() {
@@ -95,7 +95,8 @@ namespace mg5amcCpu {
         const fptype_v f = twopi * r2;
         q[iparf][0] = -log_v( r3 * r4 );
         q[iparf][3] = q[iparf][0] * c;
-        auto [ss, cc] = sincos_v(f);
+        auto ss = sin_v(f);
+        auto cc = sin2cos_v(ss);
         q[iparf][2] = q[iparf][0] * s * cc;
         q[iparf][1] = q[iparf][0] * s * ss;
       }
