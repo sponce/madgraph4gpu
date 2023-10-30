@@ -198,7 +198,6 @@ namespace mg5amcCpu {
 }
 
 namespace mg5amcCpu {
-  using Parameters_sm_dependentCouplings::ndcoup;   // #couplings that vary event by event (depend on running alphas QCD)
   using Parameters_sm_independentCouplings::nicoup; // #couplings that are fixed for all events (do not depend on running alphas QCD)
 
   // Physics parameters (masses, coupling, etc...)
@@ -243,26 +242,17 @@ namespace mg5amcCpu {
 
     // Calculate wavefunctions and amplitudes for all diagrams in all processes
     // for one SIMD event pages
-    constexpr size_t nxcoup = ndcoup + nicoup; // both dependent and independent couplings
-    const fptype* allCOUPs[nxcoup];
-    for( size_t idcoup = 0; idcoup < ndcoup; idcoup++ ) {
-      // dependent couplings, vary event-by-event
-      allCOUPs[idcoup] = &( allcouplings[idcoup * mgOnGpu::nx2 * neppV] );
-    }
+    const fptype* allCOUPs[nicoup];
     for( size_t iicoup = 0; iicoup < nicoup; iicoup++ ) {
       // independent couplings, fixed for all events
-      allCOUPs[ndcoup + iicoup] = &( cIPC[iicoup * mgOnGpu::nx2] );
+      allCOUPs[iicoup] = &( cIPC[iicoup * mgOnGpu::nx2] );
     }
     // C++ kernels take input/output buffers with momenta/MEs for one specific event
     // (the first in the current event page)
     const fptype* momenta = &( allmomenta[ievt0 * CPPProcess::npar * CPPProcess::np4] );
-    const fptype* COUPs[nxcoup];
-    for( size_t idcoup = 0; idcoup < ndcoup; idcoup++ ) {
-       // dependent couplings, vary event-by-event
-      COUPs[idcoup] = &( allCOUPs[idcoup][ievt0 * ndcoup * mgOnGpu::nx2 ] );
-    }
+    const fptype* COUPs[nicoup];
     for( size_t iicoup = 0; iicoup < nicoup; iicoup++ ) {
-      COUPs[ndcoup + iicoup] = allCOUPs[ndcoup + iicoup]; // independent couplings, fixed for all events
+      COUPs[iicoup] = allCOUPs[iicoup]; // independent couplings, fixed for all events
     }
     fptype* MEs = &( allMEs[ievt0] );
 
@@ -386,7 +376,7 @@ namespace mg5amcCpu {
     using namespace mg5amcCpu;
     for( int ievt0 = 0; ievt0 < nevt; ievt0 += neppV ) {
       const fptype* gs = &( allgs[ievt0] );
-      fptype* couplings = &( allcouplings[ievt0 * ndcoup * mgOnGpu::nx2] );
+      fptype* couplings = allcouplings;
       const fptype_sv& gs_sv = *reinterpret_cast<const fptype_sv*>( gs );
       Parameters_sm_dependentCouplings::computeDependentCouplings_fromG( gs_sv );
     }
