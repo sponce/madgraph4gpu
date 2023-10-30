@@ -19,8 +19,10 @@ namespace CommonRandomNumbers {
     result.reserve( n );
     std::minstd_rand generator( seed );
     std::uniform_real_distribution<T> distribution( 0.0, 1.0 );
-    for( std::size_t i = 0; i < n; ++i ) {
+    for( std::size_t i = 0; i < n; i+=2 ) {
       result.push_back( distribution( generator ) );
+      result.push_back( 0 );
+      distribution( generator );
     }
     return result;
   }
