@@ -61,13 +61,16 @@ namespace mg5amcCpu {
     }
   }
 
-  fptype_v sqrt_v(fptype_v in) {
+  inline fptype_v __attribute__( ( always_inline ) ) sqrt_v(fptype_v in) {
     return fptype_v{ sqrt(in[0]), sqrt(in[1]), sqrt(in[2]), sqrt(in[3]) };
   }
-  fptype_v log_v(fptype_v in) {
+  inline fptype_v __attribute__( ( always_inline ) ) rsqrt_v(fptype_v in) {
+    return 1./sqrt_v(in);
+  }
+  inline fptype_v __attribute__( ( always_inline ) ) log_v(fptype_v in) {
     return fptype_v{ log(in[0]), log(in[1]), log(in[2]), log(in[3]) };
   }
-  std::pair<fptype_v, fptype_v> sincos_v(fptype_v in) {
+  inline std::pair<fptype_v, fptype_v> __attribute__( ( always_inline ) ) sincos_v(fptype_v in) {
     return {
       fptype_v{ sin(in[0]), sin(in[1]), sin(in[2]), sin(in[3]) },
       fptype_v{ cos(in[0]), cos(in[1]), cos(in[2]), cos(in[3]) }
@@ -93,22 +96,22 @@ namespace mg5amcCpu {
         const fptype_v f = twopi * r2;
         q[iparf][0] = -log_v( r3 * r4 );
         q[iparf][3] = q[iparf][0] * c;
-        auto [sin, cos] = sincos_v(f);
-        q[iparf][2] = q[iparf][0] * s * cos;
-        q[iparf][1] = q[iparf][0] * s * sin;
+        auto [ss, cc] = sincos_v(f);
+        q[iparf][2] = q[iparf][0] * s * cc;
+        q[iparf][1] = q[iparf][0] * s * ss;
       }
 
       // calculate the parameters of the conformal transformation
-      fptype_v r[np4] = {0., 0., 0., 0.};
-      for( int iparf = 0; iparf < nparf; iparf++ ) {
-        for( int i4 = 0; i4 < np4; i4++ ) r[i4] = r[i4] + q[iparf][i4];
-      }
+      fptype_v r[np4] = {q[0][0] + q[1][0],
+                         q[0][1] + q[1][1],
+                         q[0][2] + q[1][2],
+                         q[0][3] + q[1][3] };
       fptype_v b[np4 - 1];
-      const fptype_v rmas = sqrt_v( r[0]*r[0] - r[3]*r[3] - r[2]*r[2] - r[1]*r[1] );
-      for( int i4 = 1; i4 < np4; i4++ ) b[i4 - 1] = -r[i4] / rmas;
-      const fptype_v g = r[0] / rmas;
+      const fptype_v rmas = rsqrt_v( r[0]*r[0] - r[3]*r[3] - r[2]*r[2] - r[1]*r[1] );
+      for( int i4 = 1; i4 < np4; i4++ ) b[i4 - 1] = -r[i4] * rmas;
+      const fptype_v g = r[0] * rmas;
       const fptype_v a = 1. / ( 1. + g );
-      const fptype_v x0 = m_energy / rmas;
+      const fptype_v x0 = m_energy * rmas;
 
       // transform the q's conformally into the p's (i.e. the 'momenta')
       for( int iparf = 0; iparf < nparf; iparf++ ) {
