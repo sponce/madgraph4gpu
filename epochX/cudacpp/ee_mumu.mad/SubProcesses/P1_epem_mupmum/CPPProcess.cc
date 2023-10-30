@@ -38,8 +38,6 @@ namespace mg5amcCpu {
     return *reinterpret_cast<const fptype_sv*>( &momenta[IPAR * CPPProcess::np4 * neppV + IP4 * neppV] );
   }
 
-  // Compute the output wavefunction fo[6] from the input momenta[npar*4*nevt]
-  // ASSUMPTIONS: (FMASS == 0) and (PX == PY == 0 and E == +PZ > 0)
   inline void  ALWAYS_INLINE
   myopzxxx( const fptype momenta[], // input: momenta
             const int nhel,         // input: -1 or +1 (helicity of fermion)
@@ -240,20 +238,9 @@ namespace mg5amcCpu {
     // all Feynman diagrams in a given color combination]
     cxtype_sv jamp_sv{}; // all zeros
 
-    // Calculate wavefunctions and amplitudes for all diagrams in all processes
-    // for one SIMD event pages
-    const fptype* allCOUPs[nicoup];
-    for( size_t iicoup = 0; iicoup < nicoup; iicoup++ ) {
-      // independent couplings, fixed for all events
-      allCOUPs[iicoup] = &( cIPC[iicoup * mgOnGpu::nx2] );
-    }
     // C++ kernels take input/output buffers with momenta/MEs for one specific event
     // (the first in the current event page)
     const fptype* momenta = &( allmomenta[ievt0 * CPPProcess::npar * CPPProcess::np4] );
-    const fptype* COUPs[nicoup];
-    for( size_t iicoup = 0; iicoup < nicoup; iicoup++ ) {
-      COUPs[iicoup] = allCOUPs[iicoup]; // independent couplings, fixed for all events
-    }
     fptype* MEs = &( allMEs[ievt0] );
 
     // Reset color flows (reset jamp_sv) at the beginning of a new event or event page
@@ -270,18 +257,18 @@ namespace mg5amcCpu {
     myimzxxx( momenta, cHel[ihel][1], w_sv[1] ); // NB: imzxxx only uses pz
     myixzxxx( momenta, cHel[ihel][2], w_sv[2] );
     myoxzxxx( momenta, cHel[ihel][3], w_sv[3] );
-    myFFV1P0_3( w_sv[1], w_sv[0], COUPs[0], w_sv[4] );
+    myFFV1P0_3( w_sv[1], w_sv[0], cIPC, w_sv[4] );
 
     // Amplitude(s) for diagram number 1
-    myFFV1_0( w_sv[2], w_sv[3], w_sv[4], COUPs[0], amp_sv );
+    myFFV1_0( w_sv[2], w_sv[3], w_sv[4], cIPC, amp_sv );
     jamp_sv -= amp_sv;
 
     // *** DIAGRAM 2 OF 2 ***
 
     // Wavefunction(s) for diagram number 2
-    myFFV2_4_3( w_sv[1], w_sv[0], COUPs[1], COUPs[2], cIPD[0], cIPD[1], w_sv[4] );
+    myFFV2_4_3( w_sv[1], w_sv[0], &cIPC[mgOnGpu::nx2], &cIPC[2*mgOnGpu::nx2], cIPD[0], cIPD[1], w_sv[4] );
     // Amplitude(s) for diagram number 2
-    myFFV2_4_0( w_sv[2], w_sv[3], w_sv[4], COUPs[1], COUPs[2], amp_sv );
+    myFFV2_4_0( w_sv[2], w_sv[3], w_sv[4], &cIPC[mgOnGpu::nx2], &cIPC[2*mgOnGpu::nx2], amp_sv );
     jamp_sv -= amp_sv;
 
     // *** COLOR CHOICE BELOW ***
