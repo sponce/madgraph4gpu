@@ -22,7 +22,6 @@ namespace CommonRandomNumbers {
     for( std::size_t i = 0; i < n; i+=2 ) {
       result.push_back( distribution( generator ) );
       result.push_back( 0 );
-      distribution( generator );
     }
     return result;
   }
