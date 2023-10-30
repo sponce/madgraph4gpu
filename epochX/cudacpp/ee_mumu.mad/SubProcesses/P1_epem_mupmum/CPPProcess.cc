@@ -142,13 +142,12 @@ namespace mg5amcCpu {
             const cxtype_sv F2[],
             const cxtype_sv allV3[],
             const fptype allCOUP[],
-            fptype allvertexes[] ) {
+            cxtype_sv& vertex ) {
     const cxtype_sv* V3 = allV3;
     const cxtype_sv COUP = cxtype_sv{ fptype_v{allCOUP[0]}, fptype_v{allCOUP[1]} };
-    cxtype_sv* vertex = reinterpret_cast<cxtype_sv*>( allvertexes );
     const cxtype cI = { 0., 1. };
     const cxtype_sv TMP0 = ( F1[2] * ( F2[4] * ( V3[2] + V3[5] ) + F2[5] * ( V3[3] + cI * V3[4] ) ) + ( F1[3] * ( F2[4] * ( V3[3] - cI * V3[4] ) + F2[5] * ( V3[2] - V3[5] ) ) + ( F1[4] * ( F2[2] * ( V3[2] - V3[5] ) - F2[3] * ( V3[3] + cI * V3[4] ) ) + F1[5] * ( F2[2] * ( -V3[3] + cI * V3[4] ) + F2[3] * ( V3[2] + V3[5] ) ) ) ) );
-    ( *vertex ) = COUP * -cI * TMP0;
+    vertex = COUP * -cI * TMP0;
   }
 
  
@@ -159,16 +158,15 @@ namespace mg5amcCpu {
               const cxtype_sv V3[],
               const fptype allCOUP1[],
               const fptype allCOUP2[],
-              fptype allvertexes[] ) {
+              cxtype_sv& vertex ) {
     const cxtype_sv COUP1 = cxtype_sv{ fptype_v{allCOUP1[0]}, fptype_v{allCOUP1[1]} };
     const cxtype_sv COUP2 = cxtype_sv{ fptype_v{allCOUP2[0]}, fptype_v{allCOUP2[1]} };
-    cxtype_sv* vertex = reinterpret_cast<cxtype_sv*>( allvertexes );
     const cxtype cI = { 0., 1. };
     constexpr fptype one( 1. );
     constexpr fptype two( 2. );
     const cxtype_sv TMP1 = ( F1[2] * ( F2[4] * ( V3[2] + V3[5] ) + F2[5] * ( V3[3] + cI * V3[4] ) ) + F1[3] * ( F2[4] * ( V3[3] - cI * V3[4] ) + F2[5] * ( V3[2] - V3[5] ) ) );
     const cxtype_sv TMP3 = ( F1[4] * ( F2[2] * ( V3[2] - V3[5] ) - F2[3] * ( V3[3] + cI * V3[4] ) ) + F1[5] * ( F2[2] * ( -V3[3] + cI * V3[4] ) + F2[3] * ( V3[2] + V3[5] ) ) );
-    ( *vertex ) = ( -one ) * ( COUP2 * ( +cI * TMP1 + ( two * cI ) * TMP3 ) + cI * ( TMP1 * COUP1 ) );
+    vertex = ( -one ) * ( COUP2 * ( +cI * TMP1 + ( two * cI ) * TMP3 ) + cI * ( TMP1 * COUP1 ) );
   }
 
   // Compute the output wavefunction 'V3[6]' from the input wavefunctions F1[6], F2[6]
@@ -229,13 +227,7 @@ namespace mg5amcCpu {
                            fptype_sv* jamp2_sv            // output: jamp2[1][1][neppV] for color choice (nullptr if disabled)
                            , const int ievt0             // input: first event number in current C++ event page (for CUDA, ievt depends on threadid)
                            ) {
-    assert(ievt0 % neppV == 0);
     using namespace mg5amcCpu;
-
-    // The variable nwf (which is specific to each P1 subdirectory, #644) is only used here
-    // It is hardcoded here because various attempts to hardcode it in CPPProcess.h
-    // at generation time gave the wrong result...
-    static const int nwf = 5;
 
     // Local TEMPORARY variables for a subset of Feynman diagrams in the given C++ event page (ipagV)
     // these variables are reused several times (and re-initialised each time) within the event page
@@ -244,12 +236,8 @@ namespace mg5amcCpu {
     // in all events (no kernel splitting yet)!
 
     // particle wavefunctions within Feynman diagrams
-    // (nw6 is often 6, the dimension of spin 1/2 or spin 1 particles)
-    cxtype_sv w_sv[nwf][CPPProcess::nw6];
-    cxtype_sv amp_sv[1];      // invariant amplitude for one given Feynman diagram
-
-    fptype* amp_fp;
-    amp_fp = reinterpret_cast<fptype*>( amp_sv );
+    cxtype_sv w_sv[5][CPPProcess::nw6];
+    cxtype_sv amp_sv;      // invariant amplitude for one given Feynman diagram
 
     // Local variables for the given C++ event page (ipagV)
     // [jamp: sum (for one event or event page) of the invariant amplitudes for all Feynman diagrams in a given color combination]
@@ -297,20 +285,20 @@ namespace mg5amcCpu {
     myFFV1P0_3( w_sv[1], w_sv[0], COUPs[0], 0., 0., w_sv[4] );
 
     // Amplitude(s) for diagram number 1
-    myFFV1_0( w_sv[2], w_sv[3], w_sv[4], COUPs[0], &amp_fp[0] );
-    if( channelId == 1 ) numerators_sv += cxabs2( amp_sv[0] );
-    if( channelId != 0 ) denominators_sv += cxabs2( amp_sv[0] );
-    jamp_sv -= amp_sv[0];
+    myFFV1_0( w_sv[2], w_sv[3], w_sv[4], COUPs[0], amp_sv );
+    if( channelId == 1 ) numerators_sv += cxabs2( amp_sv );
+    if( channelId != 0 ) denominators_sv += cxabs2( amp_sv );
+    jamp_sv -= amp_sv;
 
     // *** DIAGRAM 2 OF 2 ***
 
     // Wavefunction(s) for diagram number 2
     myFFV2_4_3( w_sv[1], w_sv[0], COUPs[1], COUPs[2], cIPD[0], cIPD[1], w_sv[4] );
     // Amplitude(s) for diagram number 2
-    myFFV2_4_0( w_sv[2], w_sv[3], w_sv[4], COUPs[1], COUPs[2], &amp_fp[0] );
-    if( channelId == 2 ) numerators_sv += cxabs2( amp_sv[0] );
-    if( channelId != 0 ) denominators_sv += cxabs2( amp_sv[0] );
-    jamp_sv -= amp_sv[0];
+    myFFV2_4_0( w_sv[2], w_sv[3], w_sv[4], COUPs[1], COUPs[2], amp_sv );
+    if( channelId == 2 ) numerators_sv += cxabs2( amp_sv );
+    if( channelId != 0 ) denominators_sv += cxabs2( amp_sv );
+    jamp_sv -= amp_sv;
 
     // *** COLOR CHOICE BELOW ***
     // Store the leading color flows for choice of color
@@ -489,18 +477,12 @@ namespace mg5amcCpu {
     // (in both CUDA and C++, using precomputed good helicities)
 
     // *** START OF PART 1b - C++ (loop on event pages)
-    const int npagV = nevt / neppV;
-#ifdef _OPENMP
-#pragma omp parallel for default( none ) shared( allcouplings, allMEs, allmomenta, allrndcol, allrndhel, allselcol, allselhel, cGoodHel, cNGoodHel, npagV, allDenominators, allNumerators, channelId )
-#endif // _OPENMP
-    for( int ipagV = 0; ipagV < npagV; ++ipagV ) {
+    for( int ievt0 = 0; ievt0 < nevt; ievt0 += neppV ) {
       // Running sum of partial amplitudes squared for event by event color selection (#402)
       fptype_sv jamp2_sv = { 0 };
       fptype_sv MEs_ighel[CPPProcess::ncomb] = { 0 };    // sum of MEs for all good helicities up to ighel (for the first - and/or only - neppV page)
-      const int ievt0 = ipagV * neppV; // loop on one SIMD page (neppV events) at a time
       for( int ighel = 0; ighel < cNGoodHel; ighel++ ) {
-        const int ihel = cGoodHel[ighel];
-        calculate_wavefunctions( ihel, allmomenta, allcouplings, allMEs, channelId, allNumerators, allDenominators, &jamp2_sv, ievt0 );
+        calculate_wavefunctions( cGoodHel[ighel], allmomenta, allcouplings, allMEs, channelId, allNumerators, allDenominators, &jamp2_sv, ievt0 );
         MEs_ighel[ighel] = *reinterpret_cast<fptype_v*>( &( allMEs[ievt0] ) );
       }
       // Event-by-event random choice of helicity #403
