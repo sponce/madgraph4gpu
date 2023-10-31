@@ -279,9 +279,6 @@ main( int argc, char** argv )
   // Memory buffers for helicity selection
   HostBufferSelectedHelicity hstSelHel( nevt );
 
-  // Memory buffers for color selection
-  HostBufferSelectedColor hstSelCol( nevt );
-
   std::unique_ptr<double[]> genrtimes( new double[niter] );
   std::unique_ptr<double[]> rambtimes( new double[niter] );
   std::unique_ptr<double[]> wavetimes( new double[niter] );
@@ -297,7 +294,7 @@ main( int argc, char** argv )
   RamboSamplingKernelHost prsk( energy, hstRndmom, hstMomenta, hstWeights, nevt );
 
   // --- 0c. Create matrix element kernel [keep this in 0c for the moment]
-  MatrixElementKernelHost pmek( hstMomenta, hstGs, hstRndHel, hstRndCol, hstMatrixElements, hstSelHel, hstSelCol, nevt );
+  MatrixElementKernelHost pmek( hstMomenta, hstGs, hstRndHel, hstRndCol, hstMatrixElements, hstSelHel, nevt );
   int nGoodHel = 0; // the number of good helicities (out of ncomb)
 
   // --- 0c. Create cross section kernel [keep this in 0c for the moment]

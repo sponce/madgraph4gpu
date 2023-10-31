@@ -376,8 +376,7 @@ namespace mg5amcCpu {
             const fptype* allrndcol,       // input: random numbers[nevt] for color selection
             fptype_v* allMEs,                // output: allMEs[nevt], |M|^2 final_avg_over_helicities
             int* allselhel,                // output: helicity selection[nevt]
-            int* allselcol                 // output: helicity selection[nevt]
-            , const int nevt               // input: #events (for cuda: nevt == ndim == gpublocks*gputhreads)
+            const int nevt               // input: #events (for cuda: nevt == ndim == gpublocks*gputhreads)
             ) { /* clang-format on */
     // === PART 0 - INITIALISATION (before calculate_wavefunctions) ===
     const int nevt1 = (nevt+neppV-1)/neppV;
@@ -407,11 +406,7 @@ namespace mg5amcCpu {
             break;
           }
         }
-        const bool okcol = allrndcol[ievt] < ( targetamp[ieppV] / targetamp[ieppV] );
-        if( okcol ) {
-          allselcol[ievt] = 1; // NB Fortran [1,1], cudacpp [0,0]
-          break;
-        }
+        if (allrndcol[ievt] < ( targetamp[ieppV] / targetamp[ieppV] )) break;
       }
     }
     // *** END OF PART 1b - C++ (loop on event pages)

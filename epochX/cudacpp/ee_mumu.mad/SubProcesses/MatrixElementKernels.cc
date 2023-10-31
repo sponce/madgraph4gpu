@@ -25,9 +25,8 @@ namespace mg5amcCpu
                                                     const BufferRndNumColor& rndcol,      // input: random numbers for color selection
                                                     fptype_v* matrixElements, // output: matrix elements
                                                     BufferSelectedHelicity& selhel,       // output: helicity selection
-                                                    BufferSelectedColor& selcol,          // output: color selection
                                                     const size_t nevt )
-    : MatrixElementKernelBase( momenta, gs, rndhel, rndcol, matrixElements, selhel, selcol )
+    : MatrixElementKernelBase( momenta, gs, rndhel, rndcol, matrixElements, selhel )
     , NumberOfEvents( nevt )
     , m_couplings( nevt )
   {
@@ -65,7 +64,7 @@ namespace mg5amcCpu
   void MatrixElementKernelHost::computeMatrixElements()
   {
     computeDependentCouplings( m_gs.data(), m_couplings.data(), m_gs.size() );
-    sigmaKin( m_momenta, m_couplings.data(), m_rndhel.data(), m_rndcol.data(), m_matrixElements, m_selhel.data(), m_selcol.data(), nevt() );
+    sigmaKin( m_momenta, m_couplings.data(), m_rndhel.data(), m_rndcol.data(), m_matrixElements, m_selhel.data(), nevt() );
   }
 
   //--------------------------------------------------------------------------
