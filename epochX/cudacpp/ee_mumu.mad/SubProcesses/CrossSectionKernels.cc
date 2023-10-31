@@ -100,16 +100,14 @@ namespace mg5amcCpu
   //--------------------------------------------------------------------------
 
   CrossSectionKernelHost::CrossSectionKernelHost( const BufferWeights& samplingWeights,       // input: sampling weights
-                                                  const BufferMatrixElements& matrixElements, // input: matrix elements
+                                                  const fptype_v* matrixElements, // input: matrix elements
                                                   EventStatistics& stats,                     // output: event statistics
                                                   const size_t nevt )
     : CrossSectionKernelBase( samplingWeights, matrixElements, stats )
     , NumberOfEvents( nevt )
   {
     if( m_samplingWeights.isOnDevice() ) throw std::runtime_error( "CrossSectionKernelHost: samplingWeights must be a host array" );
-    if( m_matrixElements.isOnDevice() ) throw std::runtime_error( "CrossSectionKernelHost: matrixElements must be a host array" );
     if( this->nevt() != m_samplingWeights.nevt() ) throw std::runtime_error( "CrossSectionKernelHost: nevt mismatch with samplingWeights" );
-    if( this->nevt() != m_matrixElements.nevt() ) throw std::runtime_error( "CrossSectionKernelHost: nevt mismatch with matrixElements" );
   }
 
   //--------------------------------------------------------------------------
@@ -120,7 +118,7 @@ namespace mg5amcCpu
     // FIRST PASS: COUNT ALL/ABN/ZERO EVENTS, COMPUTE MIN/MAX, COMPUTE REFS AS MEANS OF SIMPLE SUMS
     for( size_t ievt = 0; ievt < nevt(); ++ievt ) // Loop over all events in this iteration
     {
-      const fptype& me = MemoryAccessMatrixElements::ieventAccessConst( m_matrixElements.data(), ievt );
+      const fptype& me = m_matrixElements[ievt/neppV][ievt%neppV];
       const fptype& wg = MemoryAccessWeights::ieventAccessConst( m_samplingWeights.data(), ievt );
       const size_t ievtALL = m_iter * nevt() + ievt;
       // The following events are abnormal in a run with "-p 2048 256 12 -d"
@@ -155,7 +153,7 @@ namespace mg5amcCpu
     // SECOND PASS: IMPROVE MEANS FROM SUMS OF DIFFS TO PREVIOUS REF, UPDATE REF
     for( size_t ievt = 0; ievt < nevt(); ++ievt ) // Loop over all events in this iteration
     {
-      const fptype& me = MemoryAccessMatrixElements::ieventAccessConst( m_matrixElements.data(), ievt );
+      const fptype& me = m_matrixElements[ievt/neppV][ievt%neppV];
       const fptype& wg = MemoryAccessWeights::ieventAccessConst( m_samplingWeights.data(), ievt );
       if( fp_is_abnormal( me ) ) continue;
       stats.sumMEdiff += ( me - stats.refME );
@@ -168,7 +166,7 @@ namespace mg5amcCpu
     // THIRD PASS: COMPUTE STDDEV FROM SQUARED SUMS OF DIFFS TO REF
     for( size_t ievt = 0; ievt < nevt(); ++ievt ) // Loop over all events in this iteration
     {
-      const fptype& me = MemoryAccessMatrixElements::ieventAccessConst( m_matrixElements.data(), ievt );
+      const fptype& me = m_matrixElements[ievt/neppV][ievt%neppV];
       const fptype& wg = MemoryAccessWeights::ieventAccessConst( m_samplingWeights.data(), ievt );
       if( fp_is_abnormal( me ) ) continue;
       stats.sqsMEdiff += std::pow( me - stats.refME, 2 );
@@ -179,58 +177,5 @@ namespace mg5amcCpu
     // Increment the iterations counter
     m_iter++;
   }
-
-  //--------------------------------------------------------------------------
 }
 
-//============================================================================
-
-#ifdef __CUDACC__
-namespace mg5amcGpu
-{
-
-  /*
-  //--------------------------------------------------------------------------
-
-  CrossSectionKernelDevice::CrossSectionKernelDevice( const BufferWeights& samplingWeights,       // input: sampling weights
-                                                      const BufferMatrixElements& matrixElements, // input: matrix elements
-                                                      EventStatistics& stats,                     // output: event statistics
-                                                      const size_t gpublocks,
-                                                      const size_t gputhreads )
-    : CrossSectionKernelBase( samplingWeights, matrixElements, stats )
-    , NumberOfEvents( gpublocks*gputhreads )
-    , m_gpublocks( gpublocks )
-    , m_gputhreads( gputhreads )
-  {
-    if ( ! m_samplingWeights.isOnDevice() ) throw std::runtime_error( "CrossSectionKernelDevice: samplingWeights must be a device array" );
-    if ( ! m_matrixElements.isOnDevice() ) throw std::runtime_error( "CrossSectionKernelDevice: matrixElements must be a device array" );
-    if ( m_gpublocks == 0 ) throw std::runtime_error( "CrossSectionKernelDevice: gpublocks must be > 0" );
-    if ( m_gputhreads == 0 ) throw std::runtime_error( "CrossSectionKernelDevice: gputhreads must be > 0" );
-    if ( this->nevt() != m_samplingWeights.nevt() ) throw std::runtime_error( "CrossSectionKernelDevice: nevt mismatch with samplingWeights" );
-    if ( this->nevt() != m_matrixElements.nevt() ) throw std::runtime_error( "CrossSectionKernelDevice: nevt mismatch with matrixElements" );
-  }
-
-  //--------------------------------------------------------------------------
-
-  void CrossSectionKernelDevice::setGrid( const size_t gpublocks, const size_t gputhreads )
-  {
-    if ( m_gpublocks == 0 ) throw std::runtime_error( "CrossSectionKernelDevice: gpublocks must be > 0 in setGrid" );
-    if ( m_gputhreads == 0 ) throw std::runtime_error( "CrossSectionKernelDevice: gputhreads must be > 0 in setGrid" );
-    if ( this->nevt() != m_gpublocks * m_gputhreads ) throw std::runtime_error( "CrossSectionKernelDevice: nevt mismatch in setGrid" );
-  }
-
-  //--------------------------------------------------------------------------
-
-  void CrossSectionKernelDevice::updateEventStatistics( const bool debug )
-  {
-    // Increment the iterations counter
-    m_iter++;
-  }
-
-  //--------------------------------------------------------------------------
-  */
-
-}
-#endif
-
-//============================================================================

@@ -217,7 +217,7 @@ namespace mg5amcCpu {
   calculate_wavefunctions( int ihel,
                            const fptype_v* allmomenta,      // input: momenta[nevt*npar*4]
                            const fptype* allcouplings,    // input: couplings[nevt*ndcoup*2]
-                           fptype* allMEs,                // output: allMEs[nevt], |M|^2 running_sum_over_helicities
+                           fptype_v* allMEs,                // output: allMEs[nevt], |M|^2 running_sum_over_helicities
                            fptype_sv* jamp2_sv,           // output: jamp2[1][1][neppV] for color choice (nullptr if disabled)
                            const int ievt0                // input: first event number in current C++ event page (for CUDA, ievt depends on threadid)
                            ) {
@@ -249,9 +249,7 @@ namespace mg5amcCpu {
     fptype_sv deltaMEs = deltaMEs2;
       
     // *** STORE THE RESULTS ***
-
-    fptype_sv& MEs_sv = *reinterpret_cast<fptype_v*>( &( allMEs[ievt0] ) );
-    MEs_sv += deltaMEs; // fix #435
+    allMEs[ievt0] += deltaMEs; // fix #435
   }
 
   CPPProcess::CPPProcess( bool verbose )
@@ -325,7 +323,7 @@ namespace mg5amcCpu {
   void
   sigmaKin_getGoodHel( const fptype_v* allmomenta,   // input: momenta[nevt*npar*4]
                        const fptype* allcouplings, // input: couplings[nevt*ndcoup*2]
-                       fptype* allMEs,             // output: allMEs[nevt], |M|^2 final_avg_over_helicities
+                       fptype_v* allMEs,             // output: allMEs[nevt], |M|^2 final_avg_over_helicities
                        bool* isGoodHel,            // output: isGoodHel[ncomb] - host array (C++ implementation)
                        const int nevt )            // input: #events (for cuda: nevt == ndim == gpublocks*gputhreads)
   {
@@ -339,18 +337,14 @@ namespace mg5amcCpu {
     const int npagV = maxtry / neppV;
     const int npagV2 = npagV;            // loop on one SIMD page (neppV events) at a time
     for( int ipagV2 = 0; ipagV2 < npagV2; ++ipagV2 ) {
-      const int ievt00 = ipagV2 * neppV; // loop on one SIMD page (neppV events) at a time
       for( int ihel = 0; ihel < CPPProcess::ncomb; ihel++ ) {
         // NEW IMPLEMENTATION OF GETGOODHEL (#630): RESET THE RUNNING SUM OVER HELICITIES TO 0 BEFORE ADDING A NEW HELICITY
-        for( int ieppV = 0; ieppV < neppV; ++ieppV ) {
-          const int ievt = ievt00 + ieppV;
-          allMEs[ievt] = 0;
-        }
+        allMEs[ipagV2] = fptype_v{};
         constexpr fptype_sv* jamp2_sv = nullptr; // no need for color selection during helicity filtering
-        calculate_wavefunctions( ihel, allmomenta, allcouplings, allMEs, jamp2_sv, ievt00 );
-        for( int ieppV = 0; ieppV < neppV; ++ieppV ) {
-          const int ievt = ievt00 + ieppV;
-          if( allMEs[ievt] != 0 ) {// NEW IMPLEMENTATION OF GETGOODHEL (#630): COMPARE EACH HELICITY CONTRIBUTION TO 0
+        calculate_wavefunctions( ihel, allmomenta, allcouplings, allMEs, jamp2_sv, ipagV2 );
+        fptype_v& me = allMEs[ipagV2];
+        for(int i=0; i<4; i++) {
+          if (me[i] != 0) {
             isGoodHel[ihel] = true;
           }
         }
@@ -380,7 +374,7 @@ namespace mg5amcCpu {
             const fptype* allcouplings,    // input: couplings[nevt*ndcoup*2]
             const fptype* allrndhel,       // input: random numbers[nevt] for helicity selection
             const fptype* allrndcol,       // input: random numbers[nevt] for color selection
-            fptype* allMEs,                // output: allMEs[nevt], |M|^2 final_avg_over_helicities
+            fptype_v* allMEs,                // output: allMEs[nevt], |M|^2 final_avg_over_helicities
             int* allselhel,                // output: helicity selection[nevt]
             int* allselcol                 // output: helicity selection[nevt]
             , const int nevt               // input: #events (for cuda: nevt == ndim == gpublocks*gputhreads)
@@ -393,17 +387,17 @@ namespace mg5amcCpu {
     // (in both CUDA and C++, using precomputed good helicities)
 
     // *** START OF PART 1b - C++ (loop on event pages)
-    for( int ievt0 = 0; ievt0 < nevt; ievt0 += neppV ) {
+    for( int ievt0 = 0; ievt0 < nevt/neppV; ievt0++ ) {
       // Running sum of partial amplitudes squared for event by event color selection (#402)
       fptype_sv jamp2_sv = { 0 };
       fptype_sv MEs_ighel[CPPProcess::ncomb] = { 0 };    // sum of MEs for all good helicities up to ighel (for the first - and/or only - neppV page)
       for( int ighel = 0; ighel < cNGoodHel; ighel++ ) {
         calculate_wavefunctions( cGoodHel[ighel], allmomenta, allcouplings, allMEs, &jamp2_sv, ievt0 );
-        MEs_ighel[ighel] = *reinterpret_cast<fptype_v*>( &( allMEs[ievt0] ) );
+        MEs_ighel[ighel] = allMEs[ievt0];
       }
       // Event-by-event random choice of helicity #403
       for( int ieppV = 0; ieppV < neppV; ++ieppV ) {
-        const int ievt = ievt0 + ieppV;
+        const int ievt = ievt0*neppV + ieppV;
         for( int ighel = 0; ighel < cNGoodHel; ighel++ ) {
           const bool okhel = allrndhel[ievt] < ( MEs_ighel[ighel][ieppV] / MEs_ighel[cNGoodHel - 1][ieppV] );
           if( okhel ) {
@@ -417,7 +411,7 @@ namespace mg5amcCpu {
       fptype_sv targetamp{ 0 };
       targetamp += jamp2_sv;
       for( int ieppV = 0; ieppV < neppV; ++ieppV ) {
-        const int ievt = ievt0 + ieppV;
+        const int ievt = ievt0*neppV + ieppV;
         const bool okcol = allrndcol[ievt] < ( targetamp[ieppV] / targetamp[ieppV] );
         if( okcol ) {
           allselcol[ievt] = 1; // NB Fortran [1,1], cudacpp [0,0]
@@ -431,9 +425,8 @@ namespace mg5amcCpu {
     // Get the final |M|^2 as an average over helicities/colors of the running sum of |M|^2 over helicities for the given event
     // [NB 'sum over final spins, average over initial spins', eg see
     // https://www.uzh.ch/cmsssl/physik/dam/jcr:2e24b7b1-f4d7-4160-817e-47b13dbf1d7c/Handout_4_2016-UZH.pdf]
-    for( int ievt0 = 0; ievt0 < nevt; ievt0 += neppV ) {
-      fptype_sv& MEs_sv = *reinterpret_cast<fptype_v*>( &( allMEs[ievt0] ) );
-      MEs_sv /= 4;
+    for( int ievt0 = 0; ievt0 < nevt/neppV; ievt0++ ) {
+      allMEs[ievt0] /= 4;
     }
   }
 

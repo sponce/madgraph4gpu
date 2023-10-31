@@ -266,8 +266,8 @@ main( int argc, char** argv )
   }
 
   // Memory buffers for matrix elements
-  HostBufferMatrixElements hstMatrixElements( nevt );
-
+  fptype_v* hstMatrixElements = new( std::align_val_t( 64 ) ) fptype_v[nevt/neppV]();
+  
   // Memory buffers for random numbers for helicity selection
   // *** NB #403 these buffers always remain initialised at 0: no need for helicity choice in gcheck/check (no LHE produced) ***
   HostBufferRndNumHelicity hstRndHel( nevt );
@@ -425,7 +425,7 @@ main( int argc, char** argv )
         }
         std::cout << std::string( SEP79, '-' ) << std::endl;
         // Display matrix elements
-        std::cout << " Matrix element = " << MemoryAccessMatrixElements::ieventAccessConst( hstMatrixElements.data(), ievt )
+        std::cout << " Matrix element = " << hstMatrixElements[ievt/neppV][ievt%neppV]
                   << " GeV^" << meGeVexponent << std::endl;
         std::cout << std::string( SEP79, '-' ) << std::endl;
       }

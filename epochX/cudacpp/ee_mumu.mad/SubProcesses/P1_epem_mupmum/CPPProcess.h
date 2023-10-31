@@ -58,7 +58,7 @@ namespace mg5amcCpu {
   __global__ void
   sigmaKin_getGoodHel( const fptype_v* allmomenta,   // input: momenta[nevt*npar*4]
                        const fptype* allcouplings, // input: couplings[nevt*ndcoup*2]
-                       fptype* allMEs,             // output: allMEs[nevt], |M|^2 final_avg_over_helicities
+                       fptype_v* allMEs,             // output: allMEs[nevt], |M|^2 final_avg_over_helicities
                        bool* isGoodHel,            // output: isGoodHel[ncomb] - host array (C++ implementation)
                        const int nevt );           // input: #events (for cuda: nevt == ndim == gpublocks*gputhreads)
 
@@ -70,7 +70,7 @@ namespace mg5amcCpu {
             const fptype* allcouplings,    // input: couplings[nevt*ndcoup*2]
             const fptype* allrndhel,       // input: random numbers[nevt] for helicity selection
             const fptype* allrndcol,       // input: random numbers[nevt] for color selection
-            fptype* allMEs,                // output: allMEs[nevt], |M|^2 final_avg_over_helicities
+            fptype_v* allMEs,                // output: allMEs[nevt], |M|^2 final_avg_over_helicities
             int* allselhel,                // output: helicity selection[nevt]
             int* allselcol,                // output: helicity selection[nevt]
             const int nevt );              // input: #events (for cuda: nevt == ndim == gpublocks*gputhreads)

@@ -23,7 +23,7 @@ namespace mg5amcCpu
                              const BufferGs& gs,                   // input: gs for alphaS
                              const BufferRndNumHelicity& rndhel,   // input: random numbers for helicity selection
                              const BufferRndNumColor& rndcol,      // input: random numbers for color selection
-                             BufferMatrixElements& matrixElements, // output: matrix elements
+                             fptype_v* matrixElements, // output: matrix elements
                              BufferSelectedHelicity& selhel,       // output: helicity selection
                              BufferSelectedColor& selcol )         // output: color selection
       : m_momenta( momenta )
@@ -65,7 +65,7 @@ namespace mg5amcCpu
     const BufferRndNumColor& m_rndcol;
 
     // The buffer for the output matrix elements
-    BufferMatrixElements& m_matrixElements;
+    fptype_v* m_matrixElements;
 
     // The buffer for the output helicity selection
     BufferSelectedHelicity& m_selhel;
@@ -86,7 +86,7 @@ namespace mg5amcCpu
                              const BufferGs& gs,                   // input: gs for alphaS
                              const BufferRndNumHelicity& rndhel,   // input: random numbers for helicity selection
                              const BufferRndNumColor& rndcol,      // input: random numbers for color selection
-                             BufferMatrixElements& matrixElements, // output: matrix elements
+                             fptype_v* matrixElements, // output: matrix elements
                              BufferSelectedHelicity& selhel,       // output: helicity selection
                              BufferSelectedColor& selcol,          // output: color selection
                              const size_t nevt );

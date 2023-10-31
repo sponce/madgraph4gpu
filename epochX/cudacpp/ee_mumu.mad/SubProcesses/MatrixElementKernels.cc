@@ -23,7 +23,7 @@ namespace mg5amcCpu
                                                     const BufferGs& gs,                   // input: gs for alphaS
                                                     const BufferRndNumHelicity& rndhel,   // input: random numbers for helicity selection
                                                     const BufferRndNumColor& rndcol,      // input: random numbers for color selection
-                                                    BufferMatrixElements& matrixElements, // output: matrix elements
+                                                    fptype_v* matrixElements, // output: matrix elements
                                                     BufferSelectedHelicity& selhel,       // output: helicity selection
                                                     BufferSelectedColor& selcol,          // output: color selection
                                                     const size_t nevt )
@@ -31,8 +31,6 @@ namespace mg5amcCpu
     , NumberOfEvents( nevt )
     , m_couplings( nevt )
   {
-    if( m_matrixElements.isOnDevice() ) throw std::runtime_error( "MatrixElementKernelHost: matrixElements must be a host array" );
-    if( this->nevt() != m_matrixElements.nevt() ) throw std::runtime_error( "MatrixElementKernelHost: nevt mismatch with matrixElements" );
     // Sanity checks for memory access (momenta buffer)
     static_assert( ispoweroftwo( neppV ), "neppV is not a power of 2" );
     if( nevt % neppV != 0 )
@@ -56,7 +54,7 @@ namespace mg5amcCpu
     HostBufferHelicityMask hstIsGoodHel( ncomb );
     // ... 0d1. Compute good helicity mask on the host
     computeDependentCouplings( m_gs.data(), m_couplings.data(), m_gs.size() );
-    sigmaKin_getGoodHel( m_momenta, m_couplings.data(), m_matrixElements.data(), hstIsGoodHel.data(), nevt() );
+    sigmaKin_getGoodHel( m_momenta, m_couplings.data(), m_matrixElements, hstIsGoodHel.data(), nevt() );
     // ... 0d2. Copy back good helicity list to static memory on the host
     // [FIXME! REMOVE THIS STATIC THAT BREAKS MULTITHREADING?]
     return sigmaKin_setGoodHel( hstIsGoodHel.data() );
@@ -67,7 +65,7 @@ namespace mg5amcCpu
   void MatrixElementKernelHost::computeMatrixElements()
   {
     computeDependentCouplings( m_gs.data(), m_couplings.data(), m_gs.size() );
-    sigmaKin( m_momenta, m_couplings.data(), m_rndhel.data(), m_rndcol.data(), m_matrixElements.data(), m_selhel.data(), m_selcol.data(), nevt() );
+    sigmaKin( m_momenta, m_couplings.data(), m_rndhel.data(), m_rndcol.data(), m_matrixElements, m_selhel.data(), m_selcol.data(), nevt() );
   }
 
   //--------------------------------------------------------------------------
