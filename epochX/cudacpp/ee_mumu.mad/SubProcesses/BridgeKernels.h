@@ -18,7 +18,7 @@ namespace mg5amcCpu {
   public:
 
     // Constructor from existing input and output buffers
-    BridgeKernelBase( const BufferMomenta& momenta,         // input: momenta
+    BridgeKernelBase( const fptype* momenta,         // input: momenta
                       const BufferGs& gs,                   // input: gs for alphaS
                       const BufferRndNumHelicity& rndhel,   // input: random numbers for helicity selection
                       const BufferRndNumColor& rndcol,      // input: random numbers for color selection
@@ -44,7 +44,7 @@ namespace mg5amcCpu {
   public:
 
     // Constructor from existing input and output buffers
-    BridgeKernelHost( const BufferMomenta& momenta,         // input: momenta
+    BridgeKernelHost( const fptype* momenta,         // input: momenta
                       const BufferGs& gs,                   // input: gs for alphaS
                       const BufferRndNumHelicity& rndhel,   // input: random numbers for helicity selection
                       const BufferRndNumColor& rndcol,      // input: random numbers for color selection

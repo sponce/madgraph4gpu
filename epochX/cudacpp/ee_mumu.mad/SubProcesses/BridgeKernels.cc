@@ -22,7 +22,7 @@ namespace mg5amcCpu
 
   //--------------------------------------------------------------------------
 
-  BridgeKernelBase::BridgeKernelBase( const BufferMomenta& momenta,         // input: momenta
+  BridgeKernelBase::BridgeKernelBase( const fptype* momenta,         // input: momenta
                                       const BufferGs& gs,                   // input: gs for alphaS
                                       const BufferRndNumHelicity& rndhel,   // input: random numbers for helicity selection
                                       const BufferRndNumColor& rndcol,      // input: random numbers for color selection
@@ -34,9 +34,7 @@ namespace mg5amcCpu
     , NumberOfEvents( nevt )
     , m_bridge( nevt, npar, np4 )
   {
-    if( m_momenta.isOnDevice() ) throw std::runtime_error( "BridgeKernelBase: momenta must be a host array" );
     if( m_matrixElements.isOnDevice() ) throw std::runtime_error( "BridgeKernelBase: matrixElements must be a host array" );
-    if( this->nevt() != m_momenta.nevt() ) throw std::runtime_error( "BridgeKernelBase: nevt mismatch with momenta" );
     if( this->nevt() != m_matrixElements.nevt() ) throw std::runtime_error( "BridgeKernelBase: nevt mismatch with matrixElements" );
   }
 
@@ -45,7 +43,7 @@ namespace mg5amcCpu
 
 namespace mg5amcCpu {
 
-  BridgeKernelHost::BridgeKernelHost( const BufferMomenta& momenta,         // input: momenta
+  BridgeKernelHost::BridgeKernelHost( const fptype* momenta,         // input: momenta
                                       const BufferGs& gs,                   // input: Gs for alphaS
                                       const BufferRndNumHelicity& rndhel,   // input: random numbers for helicity selection
                                       const BufferRndNumColor& rndcol,      // input: random numbers for color selection
@@ -62,7 +60,7 @@ namespace mg5amcCpu {
 
   void BridgeKernelHost::transposeInputMomentaC2F()
   {
-    hst_transposeMomentaC2F( m_momenta.data(), m_fortranMomenta.data(), nevt() );
+    hst_transposeMomentaC2F( m_momenta, m_fortranMomenta.data(), nevt() );
   }
 
   //--------------------------------------------------------------------------

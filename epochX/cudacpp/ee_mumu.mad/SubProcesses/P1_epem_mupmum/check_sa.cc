@@ -251,7 +251,7 @@ main( int argc, char** argv )
   HostBufferWeights hstWeights( nevt );
 
   // Memory buffers for momenta
-  HostBufferMomenta hstMomenta( nevt );
+  fptype* hstMomenta = new( std::align_val_t( 64 ) ) fptype[CPPProcess::np4 * CPPProcess::npar * nevt]();
 
   // Memory buffers for Gs
   HostBufferGs hstGs( nevt );
@@ -414,10 +414,10 @@ main( int argc, char** argv )
           // NB: 'setw' affects only the next field (of any type)
           std::cout << std::scientific // fixed format: affects all floats (default precision: 6)
                     << std::setw( 4 ) << ipar + 1
-                    << std::setw( 14 ) << MemoryAccessMomenta::ieventAccessIp4IparConst( hstMomenta.data(), ievt, 0, ipar )
-                    << std::setw( 14 ) << MemoryAccessMomenta::ieventAccessIp4IparConst( hstMomenta.data(), ievt, 1, ipar )
-                    << std::setw( 14 ) << MemoryAccessMomenta::ieventAccessIp4IparConst( hstMomenta.data(), ievt, 2, ipar )
-                    << std::setw( 14 ) << MemoryAccessMomenta::ieventAccessIp4IparConst( hstMomenta.data(), ievt, 3, ipar )
+                    << std::setw( 14 ) << MemoryAccessMomenta::ieventAccessIp4IparConst( hstMomenta, ievt, 0, ipar )
+                    << std::setw( 14 ) << MemoryAccessMomenta::ieventAccessIp4IparConst( hstMomenta, ievt, 1, ipar )
+                    << std::setw( 14 ) << MemoryAccessMomenta::ieventAccessIp4IparConst( hstMomenta, ievt, 2, ipar )
+                    << std::setw( 14 ) << MemoryAccessMomenta::ieventAccessIp4IparConst( hstMomenta, ievt, 3, ipar )
                     << std::endl
                     << std::defaultfloat; // default format: affects all floats
         }

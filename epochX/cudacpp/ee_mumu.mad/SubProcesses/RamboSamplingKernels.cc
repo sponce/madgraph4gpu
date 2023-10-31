@@ -21,7 +21,7 @@ namespace mg5amcCpu {
 
   RamboSamplingKernelHost::RamboSamplingKernelHost( const fptype energy,               // input: energy
                                                     const BufferRndNumMomenta& rndmom, // input: random numbers in [0,1]
-                                                    BufferMomenta& momenta,            // output: momenta
+                                                    fptype* momenta,            // output: momenta
                                                     BufferWeights& weights,            // output: weights
                                                     const size_t nevt )
     : NumberOfEvents( nevt )
@@ -30,7 +30,6 @@ namespace mg5amcCpu {
     , m_momenta( momenta )
     , m_weights( weights ) {
     if( this->nevt() != m_rndmom.nevt() ) throw std::runtime_error( "RamboSamplingKernelHost: nevt mismatch with rndmom" );
-    if( this->nevt() != m_momenta.nevt() ) throw std::runtime_error( "RamboSamplingKernelHost: nevt mismatch with momenta" );
     if( this->nevt() != m_weights.nevt() ) throw std::runtime_error( "RamboSamplingKernelHost: nevt mismatch with weights" );
     // Sanity checks for memory access (momenta buffer)
     if( nevt % neppV != 0 ) {
@@ -51,9 +50,9 @@ namespace mg5amcCpu {
   void RamboSamplingKernelHost::getMomentaInitial() {
     const fptype_v mom{m_energy / 2};
     const fptype_v zero{0};
-    memset(m_momenta.data(), 0, nevt()*neppV*8);
+    memset(m_momenta, 0, nevt()*neppV*8);
     for( size_t ievt = 0; ievt < nevt(); ievt += neppV ) {
-      fptype_v* momenta = reinterpret_cast<fptype_v*>(&m_momenta.data()[ievt * 8]);
+      fptype_v* momenta = reinterpret_cast<fptype_v*>(&m_momenta[ievt * 8]);
       momenta[0] = mom;
       momenta[3] = mom;
       momenta[4] = mom;
@@ -82,7 +81,7 @@ namespace mg5amcCpu {
     
     for( size_t ievt = 0; ievt < nevt(); ievt+=neppV ) {
       const fptype_v* rndmom = reinterpret_cast<const fptype_v*>(&( m_rndmom.data()[ievt * nparf * np4] ));
-      fptype_v* momenta = reinterpret_cast<fptype_v*>(&( m_momenta.data()[ievt * npar * np4] ));
+      fptype_v* momenta = reinterpret_cast<fptype_v*>(&( m_momenta[ievt * npar * np4] ));
 
       // generate n massless momenta in infinite phase space
       fptype_v q[nparf][np4];
