@@ -251,7 +251,7 @@ main( int argc, char** argv )
   HostBufferWeights hstWeights( nevt );
 
   // Memory buffers for momenta
-  fptype* hstMomenta = new( std::align_val_t( 64 ) ) fptype[CPPProcess::np4 * CPPProcess::npar * nevt]();
+  fptype_v* hstMomenta = new( std::align_val_t( 64 ) ) fptype_v[CPPProcess::np4 * nevt]();
 
   // Memory buffers for Gs
   HostBufferGs hstGs( nevt );
@@ -412,12 +412,14 @@ main( int argc, char** argv )
         for( int ipar = 0; ipar < CPPProcess::npar; ipar++ )
         {
           // NB: 'setw' affects only the next field (of any type)
+          const int ipagM = ievt / neppV; // #event "M-page"
+          const int ieppM = ievt % neppV; // #event in the current event M-page
           std::cout << std::scientific // fixed format: affects all floats (default precision: 6)
                     << std::setw( 4 ) << ipar + 1
-                    << std::setw( 14 ) << MemoryAccessMomenta::ieventAccessIp4IparConst( hstMomenta, ievt, 0, ipar )
-                    << std::setw( 14 ) << MemoryAccessMomenta::ieventAccessIp4IparConst( hstMomenta, ievt, 1, ipar )
-                    << std::setw( 14 ) << MemoryAccessMomenta::ieventAccessIp4IparConst( hstMomenta, ievt, 2, ipar )
-                    << std::setw( 14 ) << MemoryAccessMomenta::ieventAccessIp4IparConst( hstMomenta, ievt, 3, ipar )
+                    << std::setw( 14 ) << hstMomenta[(ipagM*CPPProcess::npar+ipar)*CPPProcess::np4 + 0][ieppM]
+                    << std::setw( 14 ) << hstMomenta[(ipagM*CPPProcess::npar+ipar)*CPPProcess::np4 + 1][ieppM]
+                    << std::setw( 14 ) << hstMomenta[(ipagM*CPPProcess::npar+ipar)*CPPProcess::np4 + 2][ieppM]
+                    << std::setw( 14 ) << hstMomenta[(ipagM*CPPProcess::npar+ipar)*CPPProcess::np4 + 3][ieppM]
                     << std::endl
                     << std::defaultfloat; // default format: affects all floats
         }

@@ -14,7 +14,7 @@ namespace mg5amcCpu {
     // Constructor from existing input and output buffers
     RamboSamplingKernelHost( const fptype energy,               // input: energy
                              const BufferRndNumMomenta& rndmom, // input: random numbers in [0,1]
-                             fptype* momenta,            // output: momenta
+                             fptype_v* momenta,            // output: momenta
                              BufferWeights& weights,            // output: weights
                              const size_t nevt );
     // Get momenta of initial state particles
@@ -27,7 +27,7 @@ namespace mg5amcCpu {
     // The buffer for the input random numbers
     alignas(32) const BufferRndNumMomenta& m_rndmom;
     // The buffer for the output momenta
-    fptype* m_momenta;
+    fptype_v* m_momenta;
     // The buffer for the output weights
     alignas(32) BufferWeights& m_weights;
   };

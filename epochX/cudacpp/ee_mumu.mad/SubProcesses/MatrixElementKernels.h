@@ -19,7 +19,7 @@ namespace mg5amcCpu
   protected:
 
     // Constructor from existing input and output buffers
-    MatrixElementKernelBase( const fptype* momenta,         // input: momenta
+    MatrixElementKernelBase( const fptype_v* momenta,         // input: momenta
                              const BufferGs& gs,                   // input: gs for alphaS
                              const BufferRndNumHelicity& rndhel,   // input: random numbers for helicity selection
                              const BufferRndNumColor& rndcol,      // input: random numbers for color selection
@@ -53,7 +53,7 @@ namespace mg5amcCpu
   protected:
 
     // The buffer for the input momenta
-    const fptype* m_momenta;
+    const fptype_v* m_momenta;
 
     // The buffer for the gs to calculate the alphaS values
     const BufferGs& m_gs;
@@ -82,7 +82,7 @@ namespace mg5amcCpu
   public:
 
     // Constructor from existing input and output buffers
-    MatrixElementKernelHost( const fptype* momenta,         // input: momenta
+    MatrixElementKernelHost( const fptype_v* momenta,         // input: momenta
                              const BufferGs& gs,                   // input: gs for alphaS
                              const BufferRndNumHelicity& rndhel,   // input: random numbers for helicity selection
                              const BufferRndNumColor& rndcol,      // input: random numbers for color selection

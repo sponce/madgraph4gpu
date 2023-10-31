@@ -21,7 +21,7 @@ namespace mg5amcCpu {
 
   RamboSamplingKernelHost::RamboSamplingKernelHost( const fptype energy,               // input: energy
                                                     const BufferRndNumMomenta& rndmom, // input: random numbers in [0,1]
-                                                    fptype* momenta,            // output: momenta
+                                                    fptype_v* momenta,            // output: momenta
                                                     BufferWeights& weights,            // output: weights
                                                     const size_t nevt )
     : NumberOfEvents( nevt )
@@ -51,8 +51,8 @@ namespace mg5amcCpu {
     const fptype_v mom{m_energy / 2};
     const fptype_v zero{0};
     memset(m_momenta, 0, nevt()*neppV*8);
-    for( size_t ievt = 0; ievt < nevt(); ievt += neppV ) {
-      fptype_v* momenta = reinterpret_cast<fptype_v*>(&m_momenta[ievt * 8]);
+    for( size_t ievt = 0; ievt < nevt()/neppV; ievt++ ) {
+      fptype_v* momenta = &m_momenta[ievt * 8];
       momenta[0] = mom;
       momenta[3] = mom;
       momenta[4] = mom;
@@ -81,7 +81,7 @@ namespace mg5amcCpu {
     
     for( size_t ievt = 0; ievt < nevt(); ievt+=neppV ) {
       const fptype_v* rndmom = reinterpret_cast<const fptype_v*>(&( m_rndmom.data()[ievt * nparf * np4] ));
-      fptype_v* momenta = reinterpret_cast<fptype_v*>(&( m_momenta[ievt * npar * np4] ));
+      fptype_v* momenta = &m_momenta[ievt * np4];
 
       // generate n massless momenta in infinite phase space
       fptype_v q[nparf][np4];

@@ -32,20 +32,14 @@
 // Process: e+ e- > mu+ mu- WEIGHTED<=4 @1
 namespace mg5amcCpu {
 
-  template<int IP4, int IPAR>
-  inline fptype_sv ALWAYS_INLINE
-  kernelAccessIp4IparConst( const fptype* momenta ) {
-    return *reinterpret_cast<const fptype_sv*>( &momenta[IPAR * CPPProcess::np4 * neppV + IP4 * neppV] );
-  }
-
   using cxtype_sv6 = std::array<cxtype_sv, 6>;
 
   // Compute the output wavefunction fo[6] from the input momenta[npar*4*nevt]
   // ASSUMPTIONS: (FMASS == 0) and (PX == PY == 0 and E == +PZ > 0)
   inline cxtype_sv6 ALWAYS_INLINE
-  myopzxxx( const fptype momenta[], // input: momenta
+  myopzxxx( const fptype_v momenta[], // input: momenta
             const int nhel ) {      // input: -1 or +1 (helicity of fermion)
-    const fptype_sv& pvec3 = kernelAccessIp4IparConst<3,0>( momenta );
+    const fptype_sv& pvec3 = momenta[3];
     const fptype_v csqp0p3 = fpsqrt( 2. * pvec3 ) * (fptype)-1;
     std::array<cxtype_sv, CPPProcess::nw6> fo{
       cxtype_sv{pvec3 * (fptype)-1, pvec3 * (fptype)-1}, 0., 0., 0., 0., 0. 
@@ -55,9 +49,9 @@ namespace mg5amcCpu {
   }
 
   inline cxtype_sv6 ALWAYS_INLINE
-  myimzxxx( const fptype momenta[], // input: momenta
+  myimzxxx( const fptype_v momenta[], // input: momenta
             const int nhel ) {      // input: -1 or +1 (helicity of fermion)
-    const fptype_sv& pvec3 = kernelAccessIp4IparConst<3,1>( momenta );
+    const fptype_sv& pvec3 = momenta[CPPProcess::np4 + 3];
     const fptype_v chi = -(fptype)nhel * fpsqrt( -2. * pvec3 );
     std::array<cxtype_sv, CPPProcess::nw6> fi{
       cxtype_sv{ pvec3, -pvec3 }, 0., 0., 0., 0., 0. 
@@ -67,12 +61,12 @@ namespace mg5amcCpu {
   }
 
   inline cxtype_sv6 ALWAYS_INLINE
-  myixzxxx( const fptype momenta[], // input: momenta
+  myixzxxx( const fptype_v momenta[], // input: momenta
             const int nhel ) {      // input: -1 or +1 (helicity of fermion)
-    const fptype_sv& pvec0 = kernelAccessIp4IparConst<0,2>( momenta );
-    const fptype_sv& pvec1 = kernelAccessIp4IparConst<1,2>( momenta );
-    const fptype_sv& pvec2 = kernelAccessIp4IparConst<2,2>( momenta );
-    const fptype_sv& pvec3 = kernelAccessIp4IparConst<3,2>( momenta );
+    const fptype_sv& pvec0 = momenta[2 * CPPProcess::np4 + 0];
+    const fptype_sv& pvec1 = momenta[2 * CPPProcess::np4 + 1];
+    const fptype_sv& pvec2 = momenta[2 * CPPProcess::np4 + 2];
+    const fptype_sv& pvec3 = momenta[2 * CPPProcess::np4 + 3];
     std::array<cxtype_sv, CPPProcess::nw6> fi{
       cxtype_sv{ -pvec0 * (fptype)-1, -pvec3 * (fptype)-1 }, // AV: BUG FIX
       cxtype_sv{ -pvec1 * (fptype)-1, -pvec2 * (fptype)-1 }, // AV: BUG FIX
@@ -96,12 +90,12 @@ namespace mg5amcCpu {
   }
 
   inline cxtype_sv6 ALWAYS_INLINE
-  myoxzxxx( const fptype momenta[], // input: momenta
+  myoxzxxx( const fptype_v momenta[], // input: momenta
             const int nhel ) {      // input: -1 or +1 (helicity of fermion)
-    const fptype_sv& pvec0 = kernelAccessIp4IparConst<0,3>( momenta );
-    const fptype_sv& pvec1 = kernelAccessIp4IparConst<1,3>( momenta );
-    const fptype_sv& pvec2 = kernelAccessIp4IparConst<2,3>( momenta );
-    const fptype_sv& pvec3 = kernelAccessIp4IparConst<3,3>( momenta );
+    const fptype_sv& pvec0 = momenta[3 * CPPProcess::np4 + 0];
+    const fptype_sv& pvec1 = momenta[3 * CPPProcess::np4 + 1];
+    const fptype_sv& pvec2 = momenta[3 * CPPProcess::np4 + 2];
+    const fptype_sv& pvec3 = momenta[3 * CPPProcess::np4 + 3];
     std::array<cxtype_sv, CPPProcess::nw6> fo{
       cxtype_sv{ pvec0, pvec3 },
       cxtype_sv{ pvec1, pvec2 },
@@ -221,7 +215,7 @@ namespace mg5amcCpu {
   // In C++, this function computes the ME for a single event "page" or SIMD vector
   inline void /* clang-format off */
   calculate_wavefunctions( int ihel,
-                           const fptype* allmomenta,      // input: momenta[nevt*npar*4]
+                           const fptype_v* allmomenta,      // input: momenta[nevt*npar*4]
                            const fptype* allcouplings,    // input: couplings[nevt*ndcoup*2]
                            fptype* allMEs,                // output: allMEs[nevt], |M|^2 running_sum_over_helicities
                            fptype_sv* jamp2_sv,           // output: jamp2[1][1][neppV] for color choice (nullptr if disabled)
@@ -229,7 +223,7 @@ namespace mg5amcCpu {
                            ) {
     using namespace mg5amcCpu;
 
-    const fptype* momenta = &( allmomenta[ievt0 * CPPProcess::npar * CPPProcess::np4] );
+    const fptype_v* momenta = &allmomenta[ievt0 * CPPProcess::np4];
 
     // *** DIAGRAM 1 OF 2 ***
     auto w_sv0 = myopzxxx( momenta, cHel[ihel][0] ); // NB: opzxxx only uses pz
@@ -329,7 +323,7 @@ namespace mg5amcCpu {
   }
 
   void
-  sigmaKin_getGoodHel( const fptype* allmomenta,   // input: momenta[nevt*npar*4]
+  sigmaKin_getGoodHel( const fptype_v* allmomenta,   // input: momenta[nevt*npar*4]
                        const fptype* allcouplings, // input: couplings[nevt*ndcoup*2]
                        fptype* allMEs,             // output: allMEs[nevt], |M|^2 final_avg_over_helicities
                        bool* isGoodHel,            // output: isGoodHel[ncomb] - host array (C++ implementation)
@@ -382,7 +376,7 @@ namespace mg5amcCpu {
 
   // Evaluate |M|^2, part independent of incoming flavour
   __global__ void /* clang-format off */
-  sigmaKin( const fptype* allmomenta,      // input: momenta[nevt*npar*4]
+  sigmaKin( const fptype_v* allmomenta,      // input: momenta[nevt*npar*4]
             const fptype* allcouplings,    // input: couplings[nevt*ndcoup*2]
             const fptype* allrndhel,       // input: random numbers[nevt] for helicity selection
             const fptype* allrndcol,       // input: random numbers[nevt] for color selection

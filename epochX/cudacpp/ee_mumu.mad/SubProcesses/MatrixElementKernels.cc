@@ -19,7 +19,7 @@ namespace mg5amcCpu
 
   //--------------------------------------------------------------------------
 
-  MatrixElementKernelHost::MatrixElementKernelHost( const fptype* momenta,         // input: momenta
+  MatrixElementKernelHost::MatrixElementKernelHost( const fptype_v* momenta,         // input: momenta
                                                     const BufferGs& gs,                   // input: gs for alphaS
                                                     const BufferRndNumHelicity& rndhel,   // input: random numbers for helicity selection
                                                     const BufferRndNumColor& rndcol,      // input: random numbers for color selection
