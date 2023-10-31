@@ -127,8 +127,8 @@ namespace mg5amcCpu {
   inline cxtype_sv6 ALWAYS_INLINE
   myFFV1P0_3( const cxtype_sv F1[],
               const cxtype_sv F2[],
-              const fptype allCOUP[]) {
-    const cxtype_sv COUP = cxtype_sv{ fptype_v{allCOUP[0]}, fptype_v{allCOUP[1]} };
+              const cxtype& allCOUP) {
+    const cxtype_sv COUP = cxtype_sv{ fptype_v{allCOUP.real()}, fptype_v{allCOUP.imag()} };
     const cxtype cI = { 0., 1. };
     auto V30 = +F1[0] + F2[0];
     auto V31 = +F1[1] + F2[1];
@@ -147,8 +147,8 @@ namespace mg5amcCpu {
   myFFV1_0( const cxtype_sv6& F1,
             const cxtype_sv6& F2,
             const cxtype_sv6& V3,
-            const fptype allCOUP[] ) {
-    const cxtype_sv COUP = cxtype_sv{ fptype_v{allCOUP[0]}, fptype_v{allCOUP[1]} };
+            const cxtype& allCOUP ) {
+    const cxtype_sv COUP = cxtype_sv{ fptype_v{allCOUP.real()}, fptype_v{allCOUP.imag()} };
     const cxtype cI = { 0., 1. };
     const cxtype_sv TMP0 = ( F1[2] * ( F2[4] * ( V3[2] + V3[5] ) + F2[5] * ( V3[3] + cI * V3[4] ) ) + ( F1[3] * ( F2[4] * ( V3[3] - cI * V3[4] ) + F2[5] * ( V3[2] - V3[5] ) ) + ( F1[4] * ( F2[2] * ( V3[2] - V3[5] ) - F2[3] * ( V3[3] + cI * V3[4] ) ) + F1[5] * ( F2[2] * ( -V3[3] + cI * V3[4] ) + F2[3] * ( V3[2] + V3[5] ) ) ) ) );
     return COUP * -cI * TMP0;
@@ -159,10 +159,10 @@ namespace mg5amcCpu {
   myFFV2_4_0( const cxtype_sv6& F1,
               const cxtype_sv6& F2,
               const cxtype_sv6& V3,
-              const fptype allCOUP1[],
-              const fptype allCOUP2[] ) {
-    const cxtype_sv COUP1 = cxtype_sv{ fptype_v{allCOUP1[0]}, fptype_v{allCOUP1[1]} };
-    const cxtype_sv COUP2 = cxtype_sv{ fptype_v{allCOUP2[0]}, fptype_v{allCOUP2[1]} };
+              const cxtype& allCOUP1,
+              const cxtype& allCOUP2 ) {
+    const cxtype_sv COUP1 = cxtype_sv{ fptype_v{allCOUP1.real()}, fptype_v{allCOUP1.imag()} };
+    const cxtype_sv COUP2 = cxtype_sv{ fptype_v{allCOUP2.real()}, fptype_v{allCOUP2.imag()} };
     const cxtype cI = { 0., 1. };
     constexpr fptype one( 1. );
     constexpr fptype two( 2. );
@@ -175,12 +175,12 @@ namespace mg5amcCpu {
   inline cxtype_sv6 ALWAYS_INLINE
   myFFV2_4_3( const cxtype_sv F1[],
               const cxtype_sv F2[],
-              const fptype allCOUP1[],
-              const fptype allCOUP2[],
+              const cxtype& allCOUP1,
+              const cxtype& allCOUP2,
               const fptype M3,
               const fptype W3 ) {
-    const cxtype_sv COUP1 = cxtype_sv{ fptype_v{allCOUP1[0]}, fptype_v{allCOUP1[1]} };
-    const cxtype_sv COUP2 = cxtype_sv{ fptype_v{allCOUP2[0]}, fptype_v{allCOUP2[1]} };
+    const cxtype_sv COUP1 = cxtype_sv{ fptype_v{allCOUP1.real()}, fptype_v{allCOUP1.imag()} };
+    const cxtype_sv COUP2 = cxtype_sv{ fptype_v{allCOUP2.real()}, fptype_v{allCOUP2.imag()} };
     const cxtype cI = { 0., 1. };
     const fptype OM3 = ( M3 != 0. ? 1. / ( M3 * M3 ) : 0. );
     auto V30 = +F1[0] + F2[0];
@@ -208,7 +208,7 @@ namespace mg5amcCpu {
 
   // Physics parameters (masses, coupling, etc...)
   static fptype cIPD[2];
-  static fptype cIPC[6];
+  static cxtype cIPC[3];
 
   // Helicity combinations (and filtering of "good" helicity combinations)
   static short cHel[CPPProcess::ncomb][CPPProcess::npar];
@@ -236,13 +236,13 @@ namespace mg5amcCpu {
     auto w_sv1 = myimzxxx( momenta, cHel[ihel][1] ); // NB: imzxxx only uses pz
     auto w_sv2 = myixzxxx( momenta, cHel[ihel][2] );
     auto w_sv3 = myoxzxxx( momenta, cHel[ihel][3] );
-    auto w_sv4 = myFFV1P0_3( w_sv1.data(), w_sv0.data(), cIPC );
-    cxtype_sv jamp_sv = -myFFV1_0( w_sv2, w_sv3, w_sv4, cIPC );
+    auto w_sv4 = myFFV1P0_3( w_sv1.data(), w_sv0.data(), cIPC[0] );
+    cxtype_sv jamp_sv = -myFFV1_0( w_sv2, w_sv3, w_sv4, cIPC[0] );
 
     // *** DIAGRAM 2 OF 2 ***
 
-    w_sv4 = myFFV2_4_3( w_sv1.data(), w_sv0.data(), &cIPC[mgOnGpu::nx2], &cIPC[2*mgOnGpu::nx2], cIPD[0], cIPD[1] );
-    jamp_sv -= myFFV2_4_0( w_sv2, w_sv3, w_sv4, &cIPC[mgOnGpu::nx2], &cIPC[2*mgOnGpu::nx2] );
+    w_sv4 = myFFV2_4_3( w_sv1.data(), w_sv0.data(), cIPC[1], cIPC[2], cIPD[0], cIPD[1] );
+    jamp_sv -= myFFV2_4_0( w_sv2, w_sv3, w_sv4, cIPC[1], cIPC[2] );
 
     // *** COLOR CHOICE BELOW ***
     if( jamp2_sv ) *jamp2_sv += cxabs2( jamp_sv );
@@ -307,10 +307,11 @@ namespace mg5amcCpu {
     m_masses.push_back( m_pars->ZERO );
     // Read physics parameters like masses and couplings from user configuration files (static: initialize once)
     // Then copy them to CUDA constant memory (issue #39) or its C++ emulation in file-scope static memory
-    const fptype tIPD[2] = { (fptype)m_pars->mdl_MZ, (fptype)m_pars->mdl_WZ };
-    const cxtype tIPC[3] = { cxmake( m_pars->GC_3 ), cxmake( m_pars->GC_50 ), cxmake( m_pars->GC_59 ) };
-    memcpy( cIPD, tIPD, 2 * sizeof( fptype ) );
-    memcpy( cIPC, tIPC, 3 * sizeof( cxtype ) );
+    cIPD[0] = (fptype)m_pars->mdl_MZ;
+    cIPD[1] = (fptype)m_pars->mdl_WZ;
+    cIPC[0] = m_pars->GC_3;
+    cIPC[1] = m_pars->GC_50;
+    cIPC[2] = m_pars->GC_59;
   }
 
   __global__ void /* clang-format off */
