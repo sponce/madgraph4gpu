@@ -395,6 +395,7 @@ namespace mg5amcCpu {
         calculate_wavefunctions( cGoodHel[ighel], allmomenta, allcouplings, allMEs, &jamp2_sv, ievt0 );
         MEs_ighel[ighel] = allMEs[ievt0];
       }
+      fptype_sv targetamp = jamp2_sv;
       // Event-by-event random choice of helicity #403
       for( int ieppV = 0; ieppV < neppV; ++ieppV ) {
         const int ievt = ievt0*neppV + ieppV;
@@ -406,12 +407,6 @@ namespace mg5amcCpu {
             break;
           }
         }
-      }
-      // Event-by-event random choice of color #402
-      fptype_sv targetamp{ 0 };
-      targetamp += jamp2_sv;
-      for( int ieppV = 0; ieppV < neppV; ++ieppV ) {
-        const int ievt = ievt0*neppV + ieppV;
         const bool okcol = allrndcol[ievt] < ( targetamp[ieppV] / targetamp[ieppV] );
         if( okcol ) {
           allselcol[ievt] = 1; // NB Fortran [1,1], cudacpp [0,0]
