@@ -38,41 +38,46 @@ namespace mg5amcCpu {
     return *reinterpret_cast<const fptype_sv*>( &momenta[IPAR * CPPProcess::np4 * neppV + IP4 * neppV] );
   }
 
-  inline void  ALWAYS_INLINE
+  using cxtype_sv6 = std::array<cxtype_sv, 6>;
+
+  // Compute the output wavefunction fo[6] from the input momenta[npar*4*nevt]
+  // ASSUMPTIONS: (FMASS == 0) and (PX == PY == 0 and E == +PZ > 0)
+  inline cxtype_sv6 ALWAYS_INLINE
   myopzxxx( const fptype momenta[], // input: momenta
-            const int nhel,         // input: -1 or +1 (helicity of fermion)
-            cxtype_sv wavefunctions[] ) {// output: wavefunctions
+            const int nhel ) {      // input: -1 or +1 (helicity of fermion)
     const fptype_sv& pvec3 = kernelAccessIp4IparConst<3,0>( momenta );
-    cxtype_sv* fo =  wavefunctions;
     const fptype_v csqp0p3 = fpsqrt( 2. * pvec3 ) * (fptype)-1;
-    fo[0] = { pvec3 * (fptype)-1, pvec3 * (fptype)-1 };
-    fo[1] = fo[2] = fo[3] = fo[4] = fo[5] = {};
+    std::array<cxtype_sv, CPPProcess::nw6> fo{
+      cxtype_sv{pvec3 * (fptype)-1, pvec3 * (fptype)-1}, 0., 0., 0., 0., 0. 
+    };
     ( ( nhel == -1 ) ? fo[2].real() : fo[5].real() ) = csqp0p3;
+    return fo;
   }
 
-  inline void  ALWAYS_INLINE
+  inline cxtype_sv6 ALWAYS_INLINE
   myimzxxx( const fptype momenta[], // input: momenta
-            const int nhel,         // input: -1 or +1 (helicity of fermion)
-            cxtype_sv wavefunctions[] ) { // output: wavefunctions
+            const int nhel ) {      // input: -1 or +1 (helicity of fermion)
     const fptype_sv& pvec3 = kernelAccessIp4IparConst<3,1>( momenta );
-    cxtype_sv* fi = wavefunctions;
     const fptype_v chi = -(fptype)nhel * fpsqrt( -2. * pvec3 );
-    fi[0] = { pvec3, -pvec3 };
-    fi[1] = fi[2] = fi[3] = fi[4] = fi[5] = {};
+    std::array<cxtype_sv, CPPProcess::nw6> fi{
+      cxtype_sv{ pvec3, -pvec3 }, 0., 0., 0., 0., 0. 
+    };
     ( ( nhel == 1 ) ? fi[5].real() : fi[2].real() ) = chi;
+    return fi;
   }
 
-  inline void ALWAYS_INLINE
+  inline cxtype_sv6 ALWAYS_INLINE
   myixzxxx( const fptype momenta[], // input: momenta
-            const int nhel,         // input: -1 or +1 (helicity of fermion)
-            cxtype_sv wavefunctions[] ) { // output: wavefunctions
+            const int nhel ) {      // input: -1 or +1 (helicity of fermion)
     const fptype_sv& pvec0 = kernelAccessIp4IparConst<0,2>( momenta );
     const fptype_sv& pvec1 = kernelAccessIp4IparConst<1,2>( momenta );
     const fptype_sv& pvec2 = kernelAccessIp4IparConst<2,2>( momenta );
     const fptype_sv& pvec3 = kernelAccessIp4IparConst<3,2>( momenta );
-    cxtype_sv* fi = wavefunctions;
-    fi[0] = { -pvec0 * (fptype)-1, -pvec3 * (fptype)-1 }; // AV: BUG FIX
-    fi[1] = { -pvec1 * (fptype)-1, -pvec2 * (fptype)-1 }; // AV: BUG FIX
+    std::array<cxtype_sv, CPPProcess::nw6> fi{
+      cxtype_sv{ -pvec0 * (fptype)-1, -pvec3 * (fptype)-1 }, // AV: BUG FIX
+      cxtype_sv{ -pvec1 * (fptype)-1, -pvec2 * (fptype)-1 }, // AV: BUG FIX
+      0., 0., 0., 0.
+    };
     const fptype_sv sqp0p3 = fpsqrt( pvec0 + pvec3 ) * (fptype)-1;
     const cxtype_sv chi0 = { sqp0p3, fptype_sv{} };
     const cxtype_sv chi1 = { (fptype)nhel * -1 * pvec1 / sqp0p3, pvec2 / sqp0p3 };
@@ -87,19 +92,21 @@ namespace mg5amcCpu {
       fi[4] = {};
       fi[5] = {};
     }
+    return fi;
   }
 
-  inline void ALWAYS_INLINE
+  inline cxtype_sv6 ALWAYS_INLINE
   myoxzxxx( const fptype momenta[], // input: momenta
-            const int nhel,         // input: -1 or +1 (helicity of fermion)
-            cxtype_sv wavefunctions[] ) { // output: wavefunctions
+            const int nhel ) {      // input: -1 or +1 (helicity of fermion)
     const fptype_sv& pvec0 = kernelAccessIp4IparConst<0,3>( momenta );
     const fptype_sv& pvec1 = kernelAccessIp4IparConst<1,3>( momenta );
     const fptype_sv& pvec2 = kernelAccessIp4IparConst<2,3>( momenta );
     const fptype_sv& pvec3 = kernelAccessIp4IparConst<3,3>( momenta );
-    cxtype_sv* fo = wavefunctions;
-    fo[0] = { pvec0, pvec3 };
-    fo[1] = { pvec1, pvec2 };
+    std::array<cxtype_sv, CPPProcess::nw6> fo{
+      cxtype_sv{ pvec0, pvec3 },
+      cxtype_sv{ pvec1, pvec2 },
+      0., 0., 0., 0.
+    };
     const fptype_sv sqp0p3 = fpsqrt( pvec0 + pvec3 );
     const cxtype_sv chi0 = { sqp0p3, fptype_sv{} };
     const cxtype_sv chi1 = { (fptype)nhel * pvec1 / sqp0p3, -pvec2 / sqp0p3 };
@@ -114,47 +121,46 @@ namespace mg5amcCpu {
       fo[4] = chi1;
       fo[5] = chi0;
     }
+    return fo;
   }
 
-  inline void ALWAYS_INLINE
+  inline cxtype_sv6 ALWAYS_INLINE
   myFFV1P0_3( const cxtype_sv F1[],
               const cxtype_sv F2[],
-              const fptype allCOUP[],
-              cxtype_sv V3[] ) {
+              const fptype allCOUP[]) {
     const cxtype_sv COUP = cxtype_sv{ fptype_v{allCOUP[0]}, fptype_v{allCOUP[1]} };
     const cxtype cI = { 0., 1. };
-    V3[0] = +F1[0] + F2[0];
-    V3[1] = +F1[1] + F2[1];
-    const fptype_sv P3[4] = { -cxreal( V3[0] ), -cxreal( V3[1] ), -cximag( V3[1] ), -cximag( V3[0] ) };
+    auto V30 = +F1[0] + F2[0];
+    auto V31 = +F1[1] + F2[1];
+    const fptype_sv P3[4] = { -cxreal( V30 ), -cxreal( V31 ), -cximag( V31 ), -cximag( V30 ) };
     const cxtype_sv denom = COUP / ( ( P3[0] * P3[0] ) - ( P3[1] * P3[1] ) - ( P3[2] * P3[2] ) - ( P3[3] * P3[3] ) );
-    V3[2] = denom * ( -cI ) * ( F1[2] * F2[4] + F1[3] * F2[5] + F1[4] * F2[2] + F1[5] * F2[3] );
-    V3[3] = denom * ( -cI ) * ( -F1[2] * F2[5] - F1[3] * F2[4] + F1[4] * F2[3] + F1[5] * F2[2] );
-    V3[4] = denom * ( -cI ) * ( -cI * ( F1[2] * F2[5] + F1[5] * F2[2] ) + cI * ( F1[3] * F2[4] + F1[4] * F2[3] ) );
-    V3[5] = denom * ( -cI ) * ( -F1[2] * F2[4] - F1[5] * F2[3] + F1[3] * F2[5] + F1[4] * F2[2] );
+    return {
+      V30, V31, 
+      denom * ( -cI ) * ( F1[2] * F2[4] + F1[3] * F2[5] + F1[4] * F2[2] + F1[5] * F2[3] ),
+      denom * ( -cI ) * ( -F1[2] * F2[5] - F1[3] * F2[4] + F1[4] * F2[3] + F1[5] * F2[2] ),
+      denom * ( -cI ) * ( -cI * ( F1[2] * F2[5] + F1[5] * F2[2] ) + cI * ( F1[3] * F2[4] + F1[4] * F2[3] ) ),
+      denom * ( -cI ) * ( -F1[2] * F2[4] - F1[5] * F2[3] + F1[3] * F2[5] + F1[4] * F2[2] )
+      };
   }
 
-  inline void ALWAYS_INLINE
-  myFFV1_0( const cxtype_sv F1[],
-            const cxtype_sv F2[],
-            const cxtype_sv allV3[],
-            const fptype allCOUP[],
-            cxtype_sv& vertex ) {
-    const cxtype_sv* V3 = allV3;
+  inline cxtype_sv ALWAYS_INLINE
+  myFFV1_0( const cxtype_sv6& F1,
+            const cxtype_sv6& F2,
+            const cxtype_sv6& V3,
+            const fptype allCOUP[] ) {
     const cxtype_sv COUP = cxtype_sv{ fptype_v{allCOUP[0]}, fptype_v{allCOUP[1]} };
     const cxtype cI = { 0., 1. };
     const cxtype_sv TMP0 = ( F1[2] * ( F2[4] * ( V3[2] + V3[5] ) + F2[5] * ( V3[3] + cI * V3[4] ) ) + ( F1[3] * ( F2[4] * ( V3[3] - cI * V3[4] ) + F2[5] * ( V3[2] - V3[5] ) ) + ( F1[4] * ( F2[2] * ( V3[2] - V3[5] ) - F2[3] * ( V3[3] + cI * V3[4] ) ) + F1[5] * ( F2[2] * ( -V3[3] + cI * V3[4] ) + F2[3] * ( V3[2] + V3[5] ) ) ) ) );
-    vertex = COUP * -cI * TMP0;
+    return COUP * -cI * TMP0;
   }
 
- 
   // Compute the output amplitude 'vertex' from the input wavefunctions F1[6], F2[6], V3[6]
-  inline void ALWAYS_INLINE
-  myFFV2_4_0( const cxtype_sv F1[],
-              const cxtype_sv F2[],
-              const cxtype_sv V3[],
+  inline cxtype_sv ALWAYS_INLINE
+  myFFV2_4_0( const cxtype_sv6& F1,
+              const cxtype_sv6& F2,
+              const cxtype_sv6& V3,
               const fptype allCOUP1[],
-              const fptype allCOUP2[],
-              cxtype_sv& vertex ) {
+              const fptype allCOUP2[] ) {
     const cxtype_sv COUP1 = cxtype_sv{ fptype_v{allCOUP1[0]}, fptype_v{allCOUP1[1]} };
     const cxtype_sv COUP2 = cxtype_sv{ fptype_v{allCOUP2[0]}, fptype_v{allCOUP2[1]} };
     const cxtype cI = { 0., 1. };
@@ -162,35 +168,37 @@ namespace mg5amcCpu {
     constexpr fptype two( 2. );
     const cxtype_sv TMP1 = ( F1[2] * ( F2[4] * ( V3[2] + V3[5] ) + F2[5] * ( V3[3] + cI * V3[4] ) ) + F1[3] * ( F2[4] * ( V3[3] - cI * V3[4] ) + F2[5] * ( V3[2] - V3[5] ) ) );
     const cxtype_sv TMP3 = ( F1[4] * ( F2[2] * ( V3[2] - V3[5] ) - F2[3] * ( V3[3] + cI * V3[4] ) ) + F1[5] * ( F2[2] * ( -V3[3] + cI * V3[4] ) + F2[3] * ( V3[2] + V3[5] ) ) );
-    vertex = ( -one ) * ( COUP2 * ( +cI * TMP1 + ( two * cI ) * TMP3 ) + cI * ( TMP1 * COUP1 ) );
+    return ( -one ) * ( COUP2 * ( +cI * TMP1 + ( two * cI ) * TMP3 ) + cI * ( TMP1 * COUP1 ) );
   }
-
+  
   // Compute the output wavefunction 'V3[6]' from the input wavefunctions F1[6], F2[6]
-  inline void ALWAYS_INLINE
+  inline cxtype_sv6 ALWAYS_INLINE
   myFFV2_4_3( const cxtype_sv F1[],
               const cxtype_sv F2[],
               const fptype allCOUP1[],
               const fptype allCOUP2[],
               const fptype M3,
-              const fptype W3,
-              cxtype_sv V3[] ) {
+              const fptype W3 ) {
     const cxtype_sv COUP1 = cxtype_sv{ fptype_v{allCOUP1[0]}, fptype_v{allCOUP1[1]} };
     const cxtype_sv COUP2 = cxtype_sv{ fptype_v{allCOUP2[0]}, fptype_v{allCOUP2[1]} };
     const cxtype cI = { 0., 1. };
     const fptype OM3 = ( M3 != 0. ? 1. / ( M3 * M3 ) : 0. );
-    V3[0] = +F1[0] + F2[0];
-    V3[1] = +F1[1] + F2[1];
-    const fptype_sv P3[4] = { -cxreal( V3[0] ), -cxreal( V3[1] ), -cximag( V3[1] ), -cximag( V3[0] ) };
+    auto V30 = +F1[0] + F2[0];
+    auto V31 = +F1[1] + F2[1];
+    const fptype_sv P3[4] = { -cxreal( V30 ), -cxreal( V31 ), -cximag( V31 ), -cximag( V30 ) };
     constexpr fptype one( 1. );
     constexpr fptype two( 2. );
     constexpr fptype half( 1. / 2. );
     const cxtype_sv TMP2 = ( F1[2] * ( F2[4] * ( P3[0] + P3[3] ) + F2[5] * ( P3[1] + cI * P3[2] ) ) + F1[3] * ( F2[4] * ( P3[1] - cI * P3[2] ) + F2[5] * ( P3[0] - P3[3] ) ) );
     const cxtype_sv TMP4 = ( F1[4] * ( F2[2] * ( P3[0] - P3[3] ) - F2[3] * ( P3[1] + cI * P3[2] ) ) + F1[5] * ( F2[2] * ( -P3[1] + cI * P3[2] ) + F2[3] * ( P3[0] + P3[3] ) ) );
     const cxtype_sv denom = one / ( ( P3[0] * P3[0] ) - ( P3[1] * P3[1] ) - ( P3[2] * P3[2] ) - ( P3[3] * P3[3] ) - M3 * ( M3 - cI * W3 ) );
-    V3[2] = denom * ( -two * cI ) * ( COUP2 * ( OM3 * -half * P3[0] * ( TMP2 + two * TMP4 ) + ( +half * ( F1[2] * F2[4] + F1[3] * F2[5] ) + F1[4] * F2[2] + F1[5] * F2[3] ) ) + half * ( COUP1 * ( F1[2] * F2[4] + F1[3] * F2[5] - P3[0] * OM3 * TMP2 ) ) );
-    V3[3] = denom * ( -two * cI ) * ( COUP2 * ( OM3 * -half * P3[1] * ( TMP2 + two * TMP4 ) + ( -half * ( F1[2] * F2[5] + F1[3] * F2[4] ) + F1[4] * F2[3] + F1[5] * F2[2] ) ) - half * ( COUP1 * ( F1[2] * F2[5] + F1[3] * F2[4] + P3[1] * OM3 * TMP2 ) ) );
-    V3[4] = denom * cI * ( COUP2 * ( OM3 * P3[2] * ( TMP2 + two * TMP4 ) + ( +cI * ( F1[2] * F2[5] ) - cI * ( F1[3] * F2[4] ) + ( -two * cI ) * ( F1[4] * F2[3] ) + ( two * cI ) * ( F1[5] * F2[2] ) ) ) + COUP1 * ( +cI * ( F1[2] * F2[5] ) - cI * ( F1[3] * F2[4] ) + P3[2] * OM3 * TMP2 ) );
-    V3[5] = denom * ( two * cI ) * ( COUP2 * ( OM3 * half * P3[3] * ( TMP2 + two * TMP4 ) + ( +half * ( F1[2] * F2[4] ) - half * ( F1[3] * F2[5] ) - F1[4] * F2[2] + F1[5] * F2[3] ) ) + half * ( COUP1 * ( F1[2] * F2[4] + P3[3] * OM3 * TMP2 - F1[3] * F2[5] ) ) );
+    return {
+      V30, V31, 
+      denom * ( -two * cI ) * ( COUP2 * ( OM3 * -half * P3[0] * ( TMP2 + two * TMP4 ) + ( +half * ( F1[2] * F2[4] + F1[3] * F2[5] ) + F1[4] * F2[2] + F1[5] * F2[3] ) ) + half * ( COUP1 * ( F1[2] * F2[4] + F1[3] * F2[5] - P3[0] * OM3 * TMP2 ) ) ),
+      denom * ( -two * cI ) * ( COUP2 * ( OM3 * -half * P3[1] * ( TMP2 + two * TMP4 ) + ( -half * ( F1[2] * F2[5] + F1[3] * F2[4] ) + F1[4] * F2[3] + F1[5] * F2[2] ) ) - half * ( COUP1 * ( F1[2] * F2[5] + F1[3] * F2[4] + P3[1] * OM3 * TMP2 ) ) ),
+      denom * cI * ( COUP2 * ( OM3 * P3[2] * ( TMP2 + two * TMP4 ) + ( +cI * ( F1[2] * F2[5] ) - cI * ( F1[3] * F2[4] ) + ( -two * cI ) * ( F1[4] * F2[3] ) + ( two * cI ) * ( F1[5] * F2[2] ) ) ) + COUP1 * ( +cI * ( F1[2] * F2[5] ) - cI * ( F1[3] * F2[4] ) + P3[2] * OM3 * TMP2 ) ),
+      denom * ( two * cI ) * ( COUP2 * ( OM3 * half * P3[3] * ( TMP2 + two * TMP4 ) + ( +half * ( F1[2] * F2[4] ) - half * ( F1[3] * F2[5] ) - F1[4] * F2[2] + F1[5] * F2[3] ) ) + half * ( COUP1 * ( F1[2] * F2[4] + P3[3] * OM3 * TMP2 - F1[3] * F2[5] ) ) )
+    };
   }
 
 }
@@ -216,84 +224,40 @@ namespace mg5amcCpu {
                            const fptype* allmomenta,      // input: momenta[nevt*npar*4]
                            const fptype* allcouplings,    // input: couplings[nevt*ndcoup*2]
                            fptype* allMEs,                // output: allMEs[nevt], |M|^2 running_sum_over_helicities
-                           fptype_sv* jamp2_sv            // output: jamp2[1][1][neppV] for color choice (nullptr if disabled)
-                           , const int ievt0             // input: first event number in current C++ event page (for CUDA, ievt depends on threadid)
+                           fptype_sv* jamp2_sv,           // output: jamp2[1][1][neppV] for color choice (nullptr if disabled)
+                           const int ievt0                // input: first event number in current C++ event page (for CUDA, ievt depends on threadid)
                            ) {
     using namespace mg5amcCpu;
 
-    // Local TEMPORARY variables for a subset of Feynman diagrams in the given C++ event page (ipagV)
-    // these variables are reused several times (and re-initialised each time) within the event page
-    // in other words, amplitudes and wavefunctions still have TRIVIAL ACCESS:
-    // there is currently no need to have large memory structures for wavefunctions/amplitudes
-    // in all events (no kernel splitting yet)!
-
-    // particle wavefunctions within Feynman diagrams
-    cxtype_sv w_sv[5][CPPProcess::nw6];
-    cxtype_sv amp_sv;      // invariant amplitude for one given Feynman diagram
-
-    // Local variables for the given C++ event page (ipagV)
-    // [jamp: sum (for one event or event page) of the invariant amplitudes for
-    // all Feynman diagrams in a given color combination]
-    cxtype_sv jamp_sv{}; // all zeros
-
-    // C++ kernels take input/output buffers with momenta/MEs for one specific event
-    // (the first in the current event page)
     const fptype* momenta = &( allmomenta[ievt0 * CPPProcess::npar * CPPProcess::np4] );
-    fptype* MEs = &( allMEs[ievt0] );
-
-    // Reset color flows (reset jamp_sv) at the beginning of a new event or event page
-    jamp_sv = {};
 
     // *** DIAGRAM 1 OF 2 ***
-
-    // Wavefunction(s) for diagram number 1
-    myopzxxx( momenta, cHel[ihel][0], w_sv[0] ); // NB: opzxxx only uses pz
-    myimzxxx( momenta, cHel[ihel][1], w_sv[1] ); // NB: imzxxx only uses pz
-    myixzxxx( momenta, cHel[ihel][2], w_sv[2] );
-    myoxzxxx( momenta, cHel[ihel][3], w_sv[3] );
-    myFFV1P0_3( w_sv[1], w_sv[0], cIPC, w_sv[4] );
-
-    // Amplitude(s) for diagram number 1
-    myFFV1_0( w_sv[2], w_sv[3], w_sv[4], cIPC, amp_sv );
-    jamp_sv -= amp_sv;
+    auto w_sv0 = myopzxxx( momenta, cHel[ihel][0] ); // NB: opzxxx only uses pz
+    auto w_sv1 = myimzxxx( momenta, cHel[ihel][1] ); // NB: imzxxx only uses pz
+    auto w_sv2 = myixzxxx( momenta, cHel[ihel][2] );
+    auto w_sv3 = myoxzxxx( momenta, cHel[ihel][3] );
+    auto w_sv4 = myFFV1P0_3( w_sv1.data(), w_sv0.data(), cIPC );
+    cxtype_sv jamp_sv = -myFFV1_0( w_sv2, w_sv3, w_sv4, cIPC );
 
     // *** DIAGRAM 2 OF 2 ***
 
-    // Wavefunction(s) for diagram number 2
-    myFFV2_4_3( w_sv[1], w_sv[0], &cIPC[mgOnGpu::nx2], &cIPC[2*mgOnGpu::nx2], cIPD[0], cIPD[1], w_sv[4] );
-    // Amplitude(s) for diagram number 2
-    myFFV2_4_0( w_sv[2], w_sv[3], w_sv[4], &cIPC[mgOnGpu::nx2], &cIPC[2*mgOnGpu::nx2], amp_sv );
-    jamp_sv -= amp_sv;
+    w_sv4 = myFFV2_4_3( w_sv1.data(), w_sv0.data(), &cIPC[mgOnGpu::nx2], &cIPC[2*mgOnGpu::nx2], cIPD[0], cIPD[1] );
+    jamp_sv -= myFFV2_4_0( w_sv2, w_sv3, w_sv4, &cIPC[mgOnGpu::nx2], &cIPC[2*mgOnGpu::nx2] );
 
     // *** COLOR CHOICE BELOW ***
-    // Store the leading color flows for choice of color
-    if( jamp2_sv ) // disable color choice if nullptr
-      *jamp2_sv += cxabs2( jamp_sv );
+    if( jamp2_sv ) *jamp2_sv += cxabs2( jamp_sv );
 
     // *** COLOR MATRIX BELOW ***
 
-    // Sum and square the color flows to get the matrix element
-    // (compute |M|^2 by squaring |M|, taking into account colours)
-    fptype_sv deltaMEs = { 0 }; // all zeros https://en.cppreference.com/w/c/language/array_initialization#Notes
-
-    // Use the property that M is a real matrix (see #475):
-    // we can rewrite the quadratic form (A-iB)(M)(A+iB) as AMA - iBMA + iBMA + BMB = AMA + BMB
-    // In addition, on C++ use the property that M is symmetric (see #475),
-    // and also use constexpr to compute "2*" and "/1" once and for all at compile time:
-    // we gain (not a factor 2...) in speed here as we only loop over the up diagonal part of the matrix.
-    // Strangely, CUDA is slower instead, so keep the old implementation for the moment.
-    // Diagonal terms
     fptype2_sv jampRi_sv = (fptype2_sv)( cxreal( jamp_sv ) );
     fptype2_sv jampIi_sv = (fptype2_sv)( cximag( jamp_sv ) );
     fptype2_sv deltaMEs2 = ( jampRi_sv * jampRi_sv + jampIi_sv * jampIi_sv );
-    deltaMEs += deltaMEs2;
+    fptype_sv deltaMEs = deltaMEs2;
       
     // *** STORE THE RESULTS ***
 
-    // NB: calculate_wavefunctions ADDS |M|^2 for a given ihel to the running sum of |M|^2 over helicities for the given event(s)
-    fptype_sv& MEs_sv = *reinterpret_cast<fptype_v*>( MEs );
+    fptype_sv& MEs_sv = *reinterpret_cast<fptype_v*>( &( allMEs[ievt0] ) );
     MEs_sv += deltaMEs; // fix #435
-    return;
   }
 
   CPPProcess::CPPProcess( bool verbose )
