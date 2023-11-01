@@ -218,14 +218,12 @@ namespace mg5amcCpu {
                            const fptype_v* allmomenta,      // input: momenta[nevt*npar*4]
                            const fptype* allcouplings,    // input: couplings[nevt*ndcoup*2]
                            fptype_v* allMEs,                // output: allMEs[nevt], |M|^2 running_sum_over_helicities
-                           fptype_sv* jamp2_sv,           // output: jamp2[1][1][neppV] for color choice (nullptr if disabled)
                            const int ievt0                // input: first event number in current C++ event page (for CUDA, ievt depends on threadid)
                            ) {
     using namespace mg5amcCpu;
 
     const fptype_v* momenta = &allmomenta[ievt0 * CPPProcess::np4];
 
-    // *** DIAGRAM 1 OF 2 ***
     auto w_sv0 = myopzxxx( momenta, cHel[ihel][0] ); // NB: opzxxx only uses pz
     auto w_sv1 = myimzxxx( momenta, cHel[ihel][1] ); // NB: imzxxx only uses pz
     auto w_sv2 = myixzxxx( momenta, cHel[ihel][2] );
@@ -233,23 +231,10 @@ namespace mg5amcCpu {
     auto w_sv4 = myFFV1P0_3( w_sv1.data(), w_sv0.data(), cIPC[0] );
     cxtype_sv jamp_sv = -myFFV1_0( w_sv2, w_sv3, w_sv4, cIPC[0] );
 
-    // *** DIAGRAM 2 OF 2 ***
-
     w_sv4 = myFFV2_4_3( w_sv1.data(), w_sv0.data(), cIPC[1], cIPC[2], cIPD[0], cIPD[1] );
     jamp_sv -= myFFV2_4_0( w_sv2, w_sv3, w_sv4, cIPC[1], cIPC[2] );
 
-    // *** COLOR CHOICE BELOW ***
-    if( jamp2_sv ) *jamp2_sv += cxabs2( jamp_sv );
-
-    // *** COLOR MATRIX BELOW ***
-
-    fptype2_sv jampRi_sv = (fptype2_sv)( cxreal( jamp_sv ) );
-    fptype2_sv jampIi_sv = (fptype2_sv)( cximag( jamp_sv ) );
-    fptype2_sv deltaMEs2 = ( jampRi_sv * jampRi_sv + jampIi_sv * jampIi_sv );
-    fptype_sv deltaMEs = deltaMEs2;
-      
-    // *** STORE THE RESULTS ***
-    allMEs[ievt0] += deltaMEs; // fix #435
+    allMEs[ievt0] += cxabs2( jamp_sv );
   }
 
   CPPProcess::CPPProcess( bool verbose )
@@ -339,8 +324,7 @@ namespace mg5amcCpu {
       for( int ihel = 0; ihel < CPPProcess::ncomb; ihel++ ) {
         // NEW IMPLEMENTATION OF GETGOODHEL (#630): RESET THE RUNNING SUM OVER HELICITIES TO 0 BEFORE ADDING A NEW HELICITY
         allMEs[ipagV2] = fptype_v{};
-        constexpr fptype_sv* jamp2_sv = nullptr; // no need for color selection during helicity filtering
-        calculate_wavefunctions( ihel, allmomenta, nullptr, allMEs, jamp2_sv, ipagV2 );
+        calculate_wavefunctions( ihel, allmomenta, nullptr, allMEs, ipagV2 );
         fptype_v& me = allMEs[ipagV2];
         for(int i=0; i<4; i++) {
           if (me[i] != 0) {
@@ -386,14 +370,12 @@ namespace mg5amcCpu {
     // *** START OF PART 1b - C++ (loop on event pages)
     for( int ievt0 = 0; ievt0 < nevt/neppV; ievt0++ ) {
       // Running sum of partial amplitudes squared for event by event color selection (#402)
-      fptype_sv jamp2_sv = { 0 };
       fptype toto{};
       fptype_sv MEs_ighel[CPPProcess::ncomb] = { 0 };    // sum of MEs for all good helicities up to ighel (for the first - and/or only - neppV page)
       for( int ighel = 0; ighel < cNGoodHel; ighel++ ) {
-        calculate_wavefunctions( cGoodHel[ighel], allmomenta, &toto, allMEs, &jamp2_sv, ievt0 );
+        calculate_wavefunctions( cGoodHel[ighel], allmomenta, &toto, allMEs, ievt0 );
         MEs_ighel[ighel] = allMEs[ievt0];
       }
-      fptype_sv targetamp = jamp2_sv;
       // Event-by-event random choice of helicity #403
       for( int ieppV = 0; ieppV < neppV; ++ieppV ) {
         const int ievt = ievt0*neppV + ieppV;
@@ -405,7 +387,7 @@ namespace mg5amcCpu {
             break;
           }
         }
-        if (allrndcol[ievt] < ( targetamp[ieppV] / targetamp[ieppV] )) break;
+        if (allrndcol[ievt] < 1) break;
       }
     }
     // *** END OF PART 1b - C++ (loop on event pages)
