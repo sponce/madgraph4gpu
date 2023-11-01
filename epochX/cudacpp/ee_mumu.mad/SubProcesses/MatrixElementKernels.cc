@@ -28,7 +28,6 @@ namespace mg5amcCpu
                                                     const size_t nevt )
     : MatrixElementKernelBase( momenta, gs, rndhel, rndcol, matrixElements, selhel )
     , NumberOfEvents( nevt )
-    , m_couplings( nevt )
   {
     // Sanity checks for memory access (momenta buffer)
     static_assert( ispoweroftwo( neppV ), "neppV is not a power of 2" );
@@ -52,8 +51,7 @@ namespace mg5amcCpu
     constexpr int ncomb = CPPProcess::ncomb; // the number of helicity combinations
     HostBufferHelicityMask hstIsGoodHel( ncomb );
     // ... 0d1. Compute good helicity mask on the host
-    computeDependentCouplings( m_gs.data(), m_couplings.data(), m_gs.size() );
-    sigmaKin_getGoodHel( m_momenta, m_couplings.data(), m_matrixElements, hstIsGoodHel.data(), nevt() );
+    sigmaKin_getGoodHel( m_momenta, m_matrixElements, hstIsGoodHel.data(), nevt() );
     // ... 0d2. Copy back good helicity list to static memory on the host
     // [FIXME! REMOVE THIS STATIC THAT BREAKS MULTITHREADING?]
     return sigmaKin_setGoodHel( hstIsGoodHel.data() );
@@ -63,8 +61,7 @@ namespace mg5amcCpu
 
   void MatrixElementKernelHost::computeMatrixElements()
   {
-    computeDependentCouplings( m_gs.data(), m_couplings.data(), m_gs.size() );
-    sigmaKin( m_momenta, m_couplings.data(), m_rndhel.data(), m_rndcol.data(), m_matrixElements, m_selhel.data(), nevt() );
+    sigmaKin( m_momenta, m_rndhel.data(), m_rndcol.data(), m_matrixElements, m_selhel.data(), nevt() );
   }
 
   //--------------------------------------------------------------------------

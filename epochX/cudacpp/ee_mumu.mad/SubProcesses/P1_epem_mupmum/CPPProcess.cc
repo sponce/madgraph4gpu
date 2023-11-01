@@ -322,7 +322,6 @@ namespace mg5amcCpu {
 
   void
   sigmaKin_getGoodHel( const fptype_v* allmomenta,   // input: momenta[nevt*npar*4]
-                       const fptype* allcouplings, // input: couplings[nevt*ndcoup*2]
                        fptype_v* allMEs,             // output: allMEs[nevt], |M|^2 final_avg_over_helicities
                        bool* isGoodHel,            // output: isGoodHel[ncomb] - host array (C++ implementation)
                        const int nevt )            // input: #events (for cuda: nevt == ndim == gpublocks*gputhreads)
@@ -341,7 +340,7 @@ namespace mg5amcCpu {
         // NEW IMPLEMENTATION OF GETGOODHEL (#630): RESET THE RUNNING SUM OVER HELICITIES TO 0 BEFORE ADDING A NEW HELICITY
         allMEs[ipagV2] = fptype_v{};
         constexpr fptype_sv* jamp2_sv = nullptr; // no need for color selection during helicity filtering
-        calculate_wavefunctions( ihel, allmomenta, allcouplings, allMEs, jamp2_sv, ipagV2 );
+        calculate_wavefunctions( ihel, allmomenta, nullptr, allMEs, jamp2_sv, ipagV2 );
         fptype_v& me = allMEs[ipagV2];
         for(int i=0; i<4; i++) {
           if (me[i] != 0) {
@@ -371,7 +370,6 @@ namespace mg5amcCpu {
   // Evaluate |M|^2, part independent of incoming flavour
   __global__ void /* clang-format off */
   sigmaKin( const fptype_v* allmomenta,      // input: momenta[nevt*npar*4]
-            const fptype* allcouplings,    // input: couplings[nevt*ndcoup*2]
             const fptype* allrndhel,       // input: random numbers[nevt] for helicity selection
             const fptype* allrndcol,       // input: random numbers[nevt] for color selection
             fptype_v* allMEs,                // output: allMEs[nevt], |M|^2 final_avg_over_helicities
@@ -389,9 +387,10 @@ namespace mg5amcCpu {
     for( int ievt0 = 0; ievt0 < nevt/neppV; ievt0++ ) {
       // Running sum of partial amplitudes squared for event by event color selection (#402)
       fptype_sv jamp2_sv = { 0 };
+      fptype toto{};
       fptype_sv MEs_ighel[CPPProcess::ncomb] = { 0 };    // sum of MEs for all good helicities up to ighel (for the first - and/or only - neppV page)
       for( int ighel = 0; ighel < cNGoodHel; ighel++ ) {
-        calculate_wavefunctions( cGoodHel[ighel], allmomenta, allcouplings, allMEs, &jamp2_sv, ievt0 );
+        calculate_wavefunctions( cGoodHel[ighel], allmomenta, &toto, allMEs, &jamp2_sv, ievt0 );
         MEs_ighel[ighel] = allMEs[ievt0];
       }
       fptype_sv targetamp = jamp2_sv;

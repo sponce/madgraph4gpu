@@ -101,10 +101,5 @@ namespace mg5amcCpu
     // [NB: SIMD vectorization in mg5amc C++ code is currently only used in the ME calculations below MatrixElementKernelHost!]
     static bool hostSupportsSIMD( const bool verbose = true );
 
-  private:
-
-    // The buffer for the event-by-event couplings that depends on alphas QCD
-    HostBufferCouplings m_couplings;
-
   };
 }
