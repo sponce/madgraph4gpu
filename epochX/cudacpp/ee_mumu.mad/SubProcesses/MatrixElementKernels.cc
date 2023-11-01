@@ -45,13 +45,7 @@ namespace mg5amcCpu
 
   int MatrixElementKernelHost::computeGoodHelicities()
   {
-    constexpr int ncomb = CPPProcess::ncomb; // the number of helicity combinations
-    HostBufferHelicityMask hstIsGoodHel( ncomb );
-    // ... 0d1. Compute good helicity mask on the host
-    sigmaKin_getGoodHel( m_momenta, m_matrixElements, hstIsGoodHel.data(), nevt() );
-    // ... 0d2. Copy back good helicity list to static memory on the host
-    // [FIXME! REMOVE THIS STATIC THAT BREAKS MULTITHREADING?]
-    return sigmaKin_setGoodHel( hstIsGoodHel.data() );
+    return sigmaKin_getAndSetGoodHel( m_momenta, m_matrixElements, nevt() );
   }
 
   //--------------------------------------------------------------------------
