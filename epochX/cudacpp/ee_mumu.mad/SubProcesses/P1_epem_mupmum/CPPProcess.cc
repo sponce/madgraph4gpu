@@ -213,17 +213,11 @@ namespace mg5amcCpu {
   // NB: calculate_wavefunctions ADDS |M|^2 for a given ihel to the running sum of |M|^2 over helicities for the given event(s)
   // (similarly, it also ADDS the numerator and denominator for a given ihel to their running sums over helicities)
   // In C++, this function computes the ME for a single event "page" or SIMD vector
-  inline void /* clang-format off */
+  inline fptype_v /* clang-format off */
   calculate_wavefunctions( int ihel,
-                           const fptype_v* allmomenta,      // input: momenta[nevt*npar*4]
-                           const fptype* allcouplings,    // input: couplings[nevt*ndcoup*2]
-                           fptype_v* allMEs,                // output: allMEs[nevt], |M|^2 running_sum_over_helicities
-                           const int ievt0                // input: first event number in current C++ event page (for CUDA, ievt depends on threadid)
+                           const fptype_v* momenta,      // input: momenta[nevt*npar*4]
+                           const fptype* allcouplings    // input: couplings[nevt*ndcoup*2]
                            ) {
-    using namespace mg5amcCpu;
-
-    const fptype_v* momenta = &allmomenta[ievt0 * CPPProcess::np4];
-
     auto w_sv0 = myopzxxx( momenta, cHel[ihel][0] ); // NB: opzxxx only uses pz
     auto w_sv1 = myimzxxx( momenta, cHel[ihel][1] ); // NB: imzxxx only uses pz
     auto w_sv2 = myixzxxx( momenta, cHel[ihel][2] );
@@ -234,7 +228,7 @@ namespace mg5amcCpu {
     w_sv4 = myFFV2_4_3( w_sv1.data(), w_sv0.data(), cIPC[1], cIPC[2], cIPD[0], cIPD[1] );
     jamp_sv -= myFFV2_4_0( w_sv2, w_sv3, w_sv4, cIPC[1], cIPC[2] );
 
-    allMEs[ievt0] += cxabs2( jamp_sv );
+    return cxabs2( jamp_sv );
   }
 
   CPPProcess::CPPProcess( bool verbose )
@@ -323,8 +317,7 @@ namespace mg5amcCpu {
     for( int ipagV2 = 0; ipagV2 < npagV2; ++ipagV2 ) {
       for( int ihel = 0; ihel < CPPProcess::ncomb; ihel++ ) {
         // NEW IMPLEMENTATION OF GETGOODHEL (#630): RESET THE RUNNING SUM OVER HELICITIES TO 0 BEFORE ADDING A NEW HELICITY
-        allMEs[ipagV2] = fptype_v{};
-        calculate_wavefunctions( ihel, allmomenta, nullptr, allMEs, ipagV2 );
+        allMEs[ipagV2] = calculate_wavefunctions( ihel, &allmomenta[ipagV2 * CPPProcess::np4], nullptr );
         fptype_v& me = allMEs[ipagV2];
         for(int i=0; i<4; i++) {
           if (me[i] != 0) {
@@ -373,7 +366,7 @@ namespace mg5amcCpu {
       fptype toto{};
       fptype_sv MEs_ighel[CPPProcess::ncomb] = { 0 };    // sum of MEs for all good helicities up to ighel (for the first - and/or only - neppV page)
       for( int ighel = 0; ighel < cNGoodHel; ighel++ ) {
-        calculate_wavefunctions( cGoodHel[ighel], allmomenta, &toto, allMEs, ievt0 );
+        allMEs[ievt0] += calculate_wavefunctions( cGoodHel[ighel], &allmomenta[ievt0 * CPPProcess::np4], &toto );
         MEs_ighel[ighel] = allMEs[ievt0];
       }
       // Event-by-event random choice of helicity #403
