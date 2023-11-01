@@ -21,11 +21,9 @@ namespace mg5amcCpu
 
   MatrixElementKernelHost::MatrixElementKernelHost( const fptype_v* momenta,         // input: momenta
                                                     const BufferGs& gs,                   // input: gs for alphaS
-                                                    const BufferRndNumHelicity& rndhel,   // input: random numbers for helicity selection
-                                                    const BufferRndNumColor& rndcol,      // input: random numbers for color selection
                                                     fptype_v* matrixElements, // output: matrix elements
                                                     const size_t nevt )
-    : MatrixElementKernelBase( momenta, gs, rndhel, rndcol, matrixElements )
+    : MatrixElementKernelBase( momenta, gs, matrixElements )
     , NumberOfEvents( nevt )
   {
     // Sanity checks for memory access (momenta buffer)
@@ -60,7 +58,7 @@ namespace mg5amcCpu
 
   void MatrixElementKernelHost::computeMatrixElements()
   {
-    sigmaKin( m_momenta, m_rndhel.data(), m_rndcol.data(), m_matrixElements, nevt() );
+    sigmaKin( m_momenta, m_matrixElements, nevt() );
   }
 
   //--------------------------------------------------------------------------

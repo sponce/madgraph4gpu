@@ -268,14 +268,6 @@ main( int argc, char** argv )
   // Memory buffers for matrix elements
   fptype_v* hstMatrixElements = new( std::align_val_t( 64 ) ) fptype_v[nevt/neppV]();
   
-  // Memory buffers for random numbers for helicity selection
-  // *** NB #403 these buffers always remain initialised at 0: no need for helicity choice in gcheck/check (no LHE produced) ***
-  HostBufferRndNumHelicity hstRndHel( nevt );
-
-  // Memory buffers for random numbers for color selection
-  // *** NB #402 these buffers always remain initialised at 0: no need for color choice in gcheck/check (no LHE produced) ***
-  HostBufferRndNumColor hstRndCol( nevt );
-
   std::unique_ptr<double[]> genrtimes( new double[niter] );
   std::unique_ptr<double[]> rambtimes( new double[niter] );
   std::unique_ptr<double[]> wavetimes( new double[niter] );
@@ -291,7 +283,7 @@ main( int argc, char** argv )
   RamboSamplingKernelHost prsk( energy, hstRndmom, hstMomenta, hstWeights, nevt );
 
   // --- 0c. Create matrix element kernel [keep this in 0c for the moment]
-  MatrixElementKernelHost pmek( hstMomenta, hstGs, hstRndHel, hstRndCol, hstMatrixElements, nevt );
+  MatrixElementKernelHost pmek( hstMomenta, hstGs, hstMatrixElements, nevt );
   int nGoodHel = 0; // the number of good helicities (out of ncomb)
 
   // --- 0c. Create cross section kernel [keep this in 0c for the moment]

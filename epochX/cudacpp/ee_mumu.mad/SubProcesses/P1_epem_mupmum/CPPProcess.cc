@@ -344,8 +344,6 @@ namespace mg5amcCpu {
   // Evaluate |M|^2, part independent of incoming flavour
   __global__ void /* clang-format off */
   sigmaKin( const fptype_v* allmomenta,      // input: momenta[nevt*npar*4]
-            const fptype* allrndhel,       // input: random numbers[nevt] for helicity selection
-            const fptype* allrndcol,       // input: random numbers[nevt] for color selection
             fptype_v* allMEs,                // output: allMEs[nevt], |M|^2 final_avg_over_helicities
             const int nevt               // input: #events (for cuda: nevt == ndim == gpublocks*gputhreads)
             ) { /* clang-format on */
