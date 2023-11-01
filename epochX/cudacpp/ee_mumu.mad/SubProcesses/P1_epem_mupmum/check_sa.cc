@@ -276,9 +276,6 @@ main( int argc, char** argv )
   // *** NB #402 these buffers always remain initialised at 0: no need for color choice in gcheck/check (no LHE produced) ***
   HostBufferRndNumColor hstRndCol( nevt );
 
-  // Memory buffers for helicity selection
-  HostBufferSelectedHelicity hstSelHel( nevt );
-
   std::unique_ptr<double[]> genrtimes( new double[niter] );
   std::unique_ptr<double[]> rambtimes( new double[niter] );
   std::unique_ptr<double[]> wavetimes( new double[niter] );
@@ -294,7 +291,7 @@ main( int argc, char** argv )
   RamboSamplingKernelHost prsk( energy, hstRndmom, hstMomenta, hstWeights, nevt );
 
   // --- 0c. Create matrix element kernel [keep this in 0c for the moment]
-  MatrixElementKernelHost pmek( hstMomenta, hstGs, hstRndHel, hstRndCol, hstMatrixElements, hstSelHel, nevt );
+  MatrixElementKernelHost pmek( hstMomenta, hstGs, hstRndHel, hstRndCol, hstMatrixElements, nevt );
   int nGoodHel = 0; // the number of good helicities (out of ncomb)
 
   // --- 0c. Create cross section kernel [keep this in 0c for the moment]

@@ -215,8 +215,7 @@ namespace mg5amcCpu {
   // In C++, this function computes the ME for a single event "page" or SIMD vector
   inline fptype_v /* clang-format off */
   calculate_wavefunctions( int ihel,
-                           const fptype_v* momenta,      // input: momenta[nevt*npar*4]
-                           const fptype* allcouplings    // input: couplings[nevt*ndcoup*2]
+                           const fptype_v* momenta      // input: momenta[nevt*npar*4]
                            ) {
     auto w_sv0 = myopzxxx( momenta, cHel[ihel][0] ); // NB: opzxxx only uses pz
     auto w_sv1 = myimzxxx( momenta, cHel[ihel][1] ); // NB: imzxxx only uses pz
@@ -307,8 +306,6 @@ namespace mg5amcCpu {
   {
     // Allocate arrays at build time to contain at least 16 events (or at least neppV events if neppV>16, e.g. in future VPUs)
     constexpr int maxtry0 = std::max( 16, neppV ); // 16, but at least neppV (otherwise the npagV loop does not even start)
-    // Loop over only nevt events if nevt is < 16 (note that nevt is always >= neppV)
-    assert( nevt >= neppV );
     const int maxtry = std::min( maxtry0, nevt ); // 16, but at most nevt (avoid invalid memory access if nevt<maxtry0)
 
     // HELICITY LOOP: CALCULATE WAVEFUNCTIONS
@@ -317,7 +314,7 @@ namespace mg5amcCpu {
     for( int ipagV2 = 0; ipagV2 < npagV2; ++ipagV2 ) {
       for( int ihel = 0; ihel < CPPProcess::ncomb; ihel++ ) {
         // NEW IMPLEMENTATION OF GETGOODHEL (#630): RESET THE RUNNING SUM OVER HELICITIES TO 0 BEFORE ADDING A NEW HELICITY
-        allMEs[ipagV2] = calculate_wavefunctions( ihel, &allmomenta[ipagV2 * CPPProcess::np4], nullptr );
+        allMEs[ipagV2] = calculate_wavefunctions( ihel, &allmomenta[ipagV2 * CPPProcess::np4] );
         fptype_v& me = allMEs[ipagV2];
         for(int i=0; i<4; i++) {
           if (me[i] != 0) {
@@ -350,7 +347,6 @@ namespace mg5amcCpu {
             const fptype* allrndhel,       // input: random numbers[nevt] for helicity selection
             const fptype* allrndcol,       // input: random numbers[nevt] for color selection
             fptype_v* allMEs,                // output: allMEs[nevt], |M|^2 final_avg_over_helicities
-            int* allselhel,                // output: helicity selection[nevt]
             const int nevt               // input: #events (for cuda: nevt == ndim == gpublocks*gputhreads)
             ) { /* clang-format on */
     // === PART 0 - INITIALISATION (before calculate_wavefunctions) ===
@@ -363,24 +359,8 @@ namespace mg5amcCpu {
     // *** START OF PART 1b - C++ (loop on event pages)
     for( int ievt0 = 0; ievt0 < nevt/neppV; ievt0++ ) {
       // Running sum of partial amplitudes squared for event by event color selection (#402)
-      fptype toto{};
-      fptype_sv MEs_ighel[CPPProcess::ncomb] = { 0 };    // sum of MEs for all good helicities up to ighel (for the first - and/or only - neppV page)
       for( int ighel = 0; ighel < cNGoodHel; ighel++ ) {
-        allMEs[ievt0] += calculate_wavefunctions( cGoodHel[ighel], &allmomenta[ievt0 * CPPProcess::np4], &toto );
-        MEs_ighel[ighel] = allMEs[ievt0];
-      }
-      // Event-by-event random choice of helicity #403
-      for( int ieppV = 0; ieppV < neppV; ++ieppV ) {
-        const int ievt = ievt0*neppV + ieppV;
-        for( int ighel = 0; ighel < cNGoodHel; ighel++ ) {
-          const bool okhel = allrndhel[ievt] < ( MEs_ighel[ighel][ieppV] / MEs_ighel[cNGoodHel - 1][ieppV] );
-          if( okhel ) {
-            const int ihelF = cGoodHel[ighel] + 1; // NB Fortran [1,ncomb], cudacpp [0,ncomb-1]
-            allselhel[ievt] = ihelF;
-            break;
-          }
-        }
-        if (allrndcol[ievt] < 1) break;
+        allMEs[ievt0] += calculate_wavefunctions( cGoodHel[ighel], &allmomenta[ievt0 * CPPProcess::np4] );
       }
     }
     // *** END OF PART 1b - C++ (loop on event pages)
